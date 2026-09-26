@@ -1,0 +1,243 @@
+// Motor de puntaje puro (sin DOM, sin efectos de lado).
+// Diseñado por reproducción de eventos: cada tanto es un evento {team, t}.
+// El estado completo del partido siempre se recalcula reproduciendo los eventos
+// desde cero. Esto hace que "restar un tanto" (deshacer) sea trivial y sin errores,
+// y de paso deja un registro exacto de todo lo sucedido (útil para el historial).
+
+export const POINT_LABELS = ['0', '15', '30', '40'];
+
+export function defaultConfig(overrides = {}) {
+  return {
+    sport: 'padel', // 'padel' | 'tenis'
+    mode: 'sets', // 'sets' (partido a sets) | 'games' (social, a X games)
+    setsToWin: 2, // 1 = un solo set/tanda de games, 2 = mejor de 3, 3 = mejor de 5
+    gamesPerSet: 6, // 6 clásico, 4 "sets cortos" para rotar parejas
+    tiebreakPoints: 7, // puntos para ganar el tie-break normal (por 2)
+    superTiebreakDecider: false, // si es true, el set decisivo se juega a súper tie-break
+    superTiebreakPoints: 10,
+    noAd: false, // punto de oro (muerte súbita en 40-40)
+    targetGames: 4, // usado solo en mode:'games' (informativo, igual a gamesPerSet)
+    firstServer: 'A', // quién saca el primer game del partido
+    ...overrides,
+  };
+}
+
+function evaluateGame(a, b, noAd) {
+  if (a < 3 && b < 3) return { over: false };
+  if (a >= 3 && b >= 3) {
+    if (noAd) {
+      if (a === b) return { over: false, goldenPoint: true };
+      return { over: true, winner: a > b ? 'A' : 'B' };
+    }
+    if (Math.abs(a - b) >= 2) return { over: true, winner: a > b ? 'A' : 'B' };
+    return { over: false, deuce: a === b, advantage: a === b ? null : (a > b ? 'A' : 'B') };
+  }
+  if (a >= 4 || b >= 4) return { over: true, winner: a > b ? 'A' : 'B' };
+  return { over: false };
+}
+
+function evaluateBreak(a, b, target) {
+  if ((a >= target || b >= target) && Math.abs(a - b) >= 2) {
+    return { over: true, winner: a > b ? 'A' : 'B' };
+  }
+  return { over: false };
+}
+
+function pointLabel(mine, other, noAd) {
+  if (mine < 3 && other < 3) return POINT_LABELS[mine];
+  if (noAd && mine >= 3 && other >= 3) return mine === other ? 'Punto de oro' : POINT_LABELS[3];
+  if (mine >= 3 && other >= 3) {
+    const diff = mine - other;
+    if (diff === 0) return 'Iguales';
+    if (diff >= 1) return 'Ventaja';
+    return POINT_LABELS[3];
+  }
+  return POINT_LABELS[Math.min(mine, 3)];
+}
+
+/**
+ * Reproduce todos los eventos de tanto y devuelve el estado completo del partido.
+ * @param {object} config - ver defaultConfig()
+ * @param {Array<{team: 'A'|'B', t: number}>} events
+ */
+export function replayMatch(config, events) {
+  const cfg = defaultConfig(config);
+
+  const state = {
+    matchOver: false,
+    winner: null,
+    setsWonA: 0,
+    setsWonB: 0,
+    completedSets: [], // {gamesA, gamesB, tiebreak: {a,b}|null, superTiebreak: bool}
+    currentSet: { gamesA: 0, gamesB: 0 },
+    gamePointsA: 0,
+    gamePointsB: 0,
+    inTiebreak: false,
+    tiebreakA: 0,
+    tiebreakB: 0,
+    isSuperTiebreakNow: false,
+    server: cfg.firstServer, // equipo que saca el game/tanda actual
+    firstServerOfSet: cfg.firstServer,
+    breaksA: 0, // quiebres de saque ganados por A
+    breaksB: 0,
+    gameLog: [], // registro de cada game/tie-break terminado
+    pointLog: [], // registro crudo de cada tanto con timestamp
+    startedAt: events.length ? events[0].t : null,
+    endedAt: null,
+    lastEventTeam: null,
+  };
+
+  let serverAtGameStart = state.server;
+
+  function finishGame(winner, wasTiebreak, wasSuperTiebreak) {
+    if (!wasSuperTiebreak) {
+      if (winner === 'A') state.currentSet.gamesA += 1;
+      else state.currentSet.gamesB += 1;
+    }
+    if (winner !== serverAtGameStart && !wasSuperTiebreak) {
+      if (winner === 'A') state.breaksA += 1; else state.breaksB += 1;
+    }
+    state.gameLog.push({
+      winner,
+      server: serverAtGameStart,
+      wasBreak: winner !== serverAtGameStart && !wasSuperTiebreak,
+      tiebreak: wasTiebreak ? { a: state.tiebreakA, b: state.tiebreakB, superTiebreak: !!wasSuperTiebreak } : null,
+      setScoreAfter: { a: state.currentSet.gamesA, b: state.currentSet.gamesB },
+    });
+
+    state.gamePointsA = 0;
+    state.gamePointsB = 0;
+    state.inTiebreak = false;
+    state.tiebreakA = 0;
+    state.tiebreakB = 0;
+    state.isSuperTiebreakNow = false;
+
+    if (wasSuperTiebreak) {
+      // El súper tie-break decide el set directamente (se registra 1 game simbólico extra)
+      if (winner === 'A') state.currentSet.gamesA += 1; else state.currentSet.gamesB += 1;
+      closeSet(winner, true);
+      return;
+    }
+
+    if (wasTiebreak) {
+      // Un tie-break normal siempre define el set (ej: 7-6), aunque la diferencia
+      // de games sea de solo 1: no aplica la regla genérica de "ganar por 2 games".
+      closeSet(winner, false);
+      return;
+    }
+
+    const setEval = evaluateSet(state.currentSet.gamesA, state.currentSet.gamesB, cfg);
+    if (setEval.triggerTiebreak) {
+      // Nota: si este es el set decisivo con súper tie-break configurado, nunca
+      // se llega a jugar games (closeSet ya deja ese set directo en super-tiebreak
+      // desde el arranque). Este tie-break normal es siempre el de fin de set.
+      state.inTiebreak = true;
+      // El que saca el tie-break es el que le tocaría sacar en el siguiente game
+      state.server = winner === serverAtGameStart ? otherTeam(serverAtGameStart) : serverAtGameStart;
+      serverAtGameStart = state.server;
+      return;
+    }
+    if (setEval.over) {
+      closeSet(setEval.winner, false);
+      return;
+    }
+    // Set continúa: alterna el saque
+    state.server = otherTeam(serverAtGameStart);
+    serverAtGameStart = state.server;
+  }
+
+  function isDecidingSetNow() {
+    if (cfg.mode !== 'sets') return false;
+    return state.setsWonA === cfg.setsToWin - 1 && state.setsWonB === cfg.setsToWin - 1;
+  }
+
+  function closeSet(winner, viaSuperTiebreak) {
+    state.completedSets.push({
+      gamesA: state.currentSet.gamesA,
+      gamesB: state.currentSet.gamesB,
+      superTiebreak: viaSuperTiebreak,
+    });
+    if (winner === 'A') state.setsWonA += 1; else state.setsWonB += 1;
+    state.currentSet = { gamesA: 0, gamesB: 0 };
+
+    if (state.setsWonA >= cfg.setsToWin || state.setsWonB >= cfg.setsToWin) {
+      state.matchOver = true;
+      state.winner = state.setsWonA > state.setsWonB ? 'A' : 'B';
+      return;
+    }
+    // Alterna quién saca primero el próximo set
+    state.firstServerOfSet = otherTeam(state.firstServerOfSet);
+    state.server = state.firstServerOfSet;
+    serverAtGameStart = state.server;
+
+    // Si el set que arranca es el decisivo y el partido usa súper tie-break
+    // como definición, ese set se juega ENTERO como un tie-break a 10 (o el
+    // valor configurado), sin jugar games previos.
+    if (cfg.superTiebreakDecider && isDecidingSetNow()) {
+      state.inTiebreak = true;
+      state.isSuperTiebreakNow = true;
+    }
+  }
+
+  function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
+
+  for (const ev of events) {
+    if (state.matchOver) break;
+    state.lastEventTeam = ev.team;
+    state.pointLog.push({ team: ev.team, t: ev.t });
+
+    if (state.inTiebreak) {
+      if (ev.team === 'A') state.tiebreakA += 1; else state.tiebreakB += 1;
+      const target = state.isSuperTiebreakNow ? cfg.superTiebreakPoints : cfg.tiebreakPoints;
+      const brEval = evaluateBreak(state.tiebreakA, state.tiebreakB, target);
+      if (brEval.over) {
+        finishGame(brEval.winner, true, state.isSuperTiebreakNow);
+      }
+      continue;
+    }
+
+    if (ev.team === 'A') state.gamePointsA += 1; else state.gamePointsB += 1;
+    const gEval = evaluateGame(state.gamePointsA, state.gamePointsB, cfg.noAd);
+    if (gEval.over) {
+      finishGame(gEval.winner, false, false);
+    }
+  }
+
+  state.endedAt = state.matchOver && state.pointLog.length ? state.pointLog[state.pointLog.length - 1].t : null;
+
+  // Etiquetas para mostrar en pantalla
+  state.display = {
+    pointA: state.inTiebreak ? String(state.tiebreakA) : pointLabel(state.gamePointsA, state.gamePointsB, cfg.noAd),
+    pointB: state.inTiebreak ? String(state.tiebreakB) : pointLabel(state.gamePointsB, state.gamePointsA, cfg.noAd),
+    gamesA: state.currentSet.gamesA,
+    gamesB: state.currentSet.gamesB,
+    setsA: state.setsWonA,
+    setsB: state.setsWonB,
+    server: state.server,
+    inTiebreak: state.inTiebreak,
+    isSuperTiebreak: state.isSuperTiebreakNow,
+  };
+
+  return state;
+}
+
+function evaluateSet(gamesA, gamesB, cfg) {
+  const N = cfg.gamesPerSet;
+  if (gamesA === N && gamesB === N) return { triggerTiebreak: true };
+  if ((gamesA >= N || gamesB >= N) && Math.abs(gamesA - gamesB) >= 2) {
+    return { over: true, winner: gamesA > gamesB ? 'A' : 'B' };
+  }
+  return { over: false };
+}
+
+export function describeConfig(cfg) {
+  const c = defaultConfig(cfg);
+  if (c.mode === 'games') {
+    return `A ${c.gamesPerSet} games${c.noAd ? ', punto de oro' : ''}`;
+  }
+  const bestOf = c.setsToWin === 1 ? '1 set' : c.setsToWin === 2 ? 'mejor de 3 sets' : 'mejor de 5 sets';
+  const parts = [bestOf, `games a ${c.gamesPerSet}`];
+  if (c.noAd) parts.push('punto de oro');
+  if (c.superTiebreakDecider && c.setsToWin > 1) parts.push('set decisivo a súper tie-break');
+  return parts.join(' · ');
+}

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0e13" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Z-Score Lite" />
+  <title>Z-Score Lite</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/favicon-32.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- HOME -->
+  <section id="view-home" class="view is-active">
+    <img class="home-logo" src="icons/icon-192.png" alt="Z-Score Lite" />
+    <div class="home-title">Z-Score <strong>Lite</strong></div>
+    <div class="home-actions">
+      <button class="btn btn-primary btn-block" data-action="go-setup">Nuevo partido</button>
+      <button class="btn btn-ghost btn-block" data-action="go-history">Historial</button>
+    </div>
+  </section>
+
+  <!-- SETUP WIZARD -->
+  <section id="view-setup" class="view">
+    <div class="setup-header">
+      <button class="icon-btn" data-action="setup-back">←</button>
+      <h1 id="setup-step-title">Modalidad</h1>
+    </div>
+
+    <!-- Paso 1: modalidad -->
+    <div class="step is-active" data-step="modalidad">
+      <div>
+        <div class="field-label">¿Cómo se juega?</div>
+        <div class="option-grid" id="mode-options">
+          <button class="option-card" data-mode="sets">
+            <div class="option-title">Partido a sets</div>
+            <div class="option-sub">Mejor de 1, 3 o 5 sets</div>
+          </button>
+          <button class="option-card" data-mode="games">
+            <div class="option-title">A X games</div>
+            <div class="option-sub">Formato social, rotación de parejas</div>
+          </button>
+        </div>
+      </div>
+
+      <div id="sets-options">
+        <div class="field-label">Sets a ganar</div>
+        <div class="option-grid" id="bestof-options">
+          <button class="option-card" data-bestof="1"><div class="option-title">1 set</div></button>
+          <button class="option-card" data-bestof="2"><div class="option-title">Mejor de 3</div></button>
+          <button class="option-card" data-bestof="3"><div class="option-title">Mejor de 5</div></button>
+        </div>
+
+        <div class="field-label" style="margin-top:14px;">Games por set</div>
+        <div class="option-grid" id="gamesperset-options">
+          <button class="option-card" data-games="6"><div class="option-title">6 games</div><div class="option-sub">Clásico</div></button>
+          <button class="option-card" data-games="4"><div class="option-title">4 games</div><div class="option-sub">Set corto</div></button>
+        </div>
+
+        <div class="toggle-row" style="margin-top:14px;" id="supertiebreak-row">
+          <div>
+            <div style="font-weight:600;">Set decisivo a súper tie-break</div>
+            <div class="match-card-meta">El 3° o 5° set se juega a 10 puntos en vez de a games</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chk-supertiebreak" />
+            <span class="switch-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div id="games-options" style="display:none;">
+        <div class="field-label">¿A cuántos games?</div>
+        <input type="number" id="input-targetgames" min="2" max="12" value="4" />
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:600;">Punto de oro</div>
+          <div class="match-card-meta">Muerte súbita en 40-40 (sin ventaja)</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="chk-noad" />
+          <span class="switch-track"></span>
+        </label>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-primary btn-block" data-action="step-next">Continuar</button>
+      </div>
+    </div>
+
+    <!-- Paso 2: parejas -->
+    <div class="step" data-step="parejas">
+      <div>
+        <div class="field-label">Pareja A</div>
+        <div class="pair-row">
+          <div><input type="text" id="input-a1" list="dl-players" placeholder="Jugador 1" /></div>
+          <div><input type="text" id="input-a2" list="dl-players" placeholder="Jugador 2" /></div>
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Pareja B</div>
+        <div class="pair-row">
+          <div><input type="text" id="input-b1" list="dl-players" placeholder="Jugador 1" /></div>
+          <div><input type="text" id="input-b2" list="dl-players" placeholder="Jugador 2" /></div>
+        </div>
+      </div>
+      <datalist id="dl-players"></datalist>
+
+      <div>
+        <div class="field-label">¿Quién saca primero?</div>
+        <div class="option-grid">
+          <button class="option-card" data-server="A"><div class="option-title">Pareja A</div></button>
+          <button class="option-card" data-server="B"><div class="option-title">Pareja B</div></button>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-primary btn-block" data-action="step-next">Continuar</button>
+      </div>
+    </div>
+
+    <!-- Paso 3: contexto + voz -->
+    <div class="step" data-step="contexto">
+      <div>
+        <div class="field-label">Club</div>
+        <input type="text" id="input-club" list="dl-clubs" placeholder="Ej: Z-Score Padel Club" />
+        <datalist id="dl-clubs"></datalist>
+      </div>
+      <div>
+        <div class="field-label">Cancha</div>
+        <input type="text" id="input-court" list="dl-courts" placeholder="Ej: Cancha 1" />
+        <datalist id="dl-courts"></datalist>
+      </div>
+      <div>
+        <div class="field-label">Categoría (opcional)</div>
+        <input type="text" id="input-category" placeholder="Ej: 5ta caballeros" />
+      </div>
+
+      <div>
+        <div class="field-label">Anuncio por voz</div>
+        <div class="option-grid" id="voice-options">
+          <button class="option-card" data-voice="full"><div class="option-title">Completo</div><div class="option-sub">Tanto a tanto, estilo árbitro</div></button>
+          <button class="option-card" data-voice="simple"><div class="option-title">Simple</div><div class="option-sub">Solo el resultado</div></button>
+          <button class="option-card" data-voice="off"><div class="option-title">Sin voz</div></button>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:600;">Probar control remoto Bluetooth</div>
+          <div class="match-card-meta" id="remote-test-status">Todavía no se detectó ninguna pulsación</div>
+        </div>
+        <button class="btn btn-ghost" data-action="test-remote" style="padding:10px 14px;">Probar</button>
+      </div>
+
+      <div class="match-summary-line" id="setup-summary"></div>
+
+      <div class="step-actions">
+        <button class="btn btn-primary btn-block" data-action="start-match">Empezar partido</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCOREBOARD -->
+  <section id="view-scoreboard" class="view">
+    <div class="scoreboard-topbar">
+      <div class="match-clock" id="match-clock">00:00</div>
+      <button class="icon-btn" data-action="open-menu">⋮</button>
+    </div>
+    <div class="tiebreak-banner" id="tiebreak-banner" style="display:none;">TIE-BREAK</div>
+    <div class="scoreboard">
+      <button class="team-panel team-panel--a" data-action="point" data-team="A">
+        <div class="team-name"><span class="serve-dot" id="serve-dot-a"></span><span id="name-a">Pareja A</span></div>
+        <div class="team-point" id="point-a">0</div>
+        <div class="team-games">
+          <div class="game-pip" id="games-a">0</div>
+        </div>
+        <div class="sets-row" id="sets-a"></div>
+      </button>
+      <button class="team-panel team-panel--b" data-action="point" data-team="B">
+        <div class="team-name"><span class="serve-dot" id="serve-dot-b"></span><span id="name-b">Pareja B</span></div>
+        <div class="team-point" id="point-b">0</div>
+        <div class="team-games">
+          <div class="game-pip" id="games-b">0</div>
+        </div>
+        <div class="sets-row" id="sets-b"></div>
+      </button>
+    </div>
+  </section>
+
+  <!-- MENU overlay (durante el partido) -->
+  <div class="overlay" id="overlay-menu">
+    <div class="sheet">
+      <h2>Partido en curso</h2>
+      <button class="btn btn-ghost btn-block" data-action="undo-point">↩ Deshacer último tanto</button>
+      <button class="btn btn-danger btn-block" data-action="end-match">Finalizar partido</button>
+      <button class="btn btn-ghost btn-block" data-action="close-menu">Volver al marcador</button>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <section id="view-summary" class="view">
+    <div class="summary-winner" id="summary-winner">Ganó Pareja A</div>
+    <div class="summary-score" id="summary-score">2 - 1</div>
+    <div class="summary-detail" id="summary-detail"></div>
+    <div class="home-actions">
+      <button class="btn btn-primary btn-block" data-action="go-home">Volver al inicio</button>
+      <button class="btn btn-ghost btn-block" data-action="go-history">Ver historial</button>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="view-history" class="view">
+    <div class="setup-header">
+      <button class="icon-btn" data-action="go-home">←</button>
+      <h1>Historial</h1>
+    </div>
+    <div id="history-list"></div>
+  </section>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
