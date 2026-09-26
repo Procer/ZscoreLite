@@ -8,7 +8,7 @@ function formatClock(ms) {
   return `${m}:${s}`;
 }
 
-export function initScoreboard({ onMatchFinished }) {
+export function initScoreboard({ onMatchFinished, onPause }) {
   const root = document.getElementById('view-scoreboard');
   const overlayMenu = document.getElementById('overlay-menu');
   let controller = null;
@@ -56,6 +56,14 @@ export function initScoreboard({ onMatchFinished }) {
     const record = controller.finalizeAndSave();
     teardown();
     onMatchFinished(record);
+  }
+
+  function pauseMatch() {
+    if (!controller) return;
+    // No se finaliza: cada tanto ya se guarda solo como "en curso", así que
+    // simplemente dejamos de mostrarlo. Se puede retomar después.
+    teardown();
+    onPause();
   }
 
   function tick() {
@@ -142,6 +150,10 @@ export function initScoreboard({ onMatchFinished }) {
     if (action === 'end-match') {
       overlayMenu.classList.remove('is-active');
       finishMatch();
+    }
+    if (action === 'pause-match') {
+      overlayMenu.classList.remove('is-active');
+      pauseMatch();
     }
   });
 

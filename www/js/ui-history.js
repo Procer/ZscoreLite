@@ -63,28 +63,33 @@ export function initHistory() {
 
     const setsHtml = sets.length
       ? sets.map((s, i) => `
-          <div class="match-card-row">
-            <span>Set ${i + 1}${s.superTiebreak ? ' (súper tie-break)' : ''}</span>
-            <strong>${s.gamesA} - ${s.gamesB}</strong>
+          <div class="stat-tile">
+            <div class="stat-tile-label">Set ${i + 1}${s.superTiebreak ? ' · súper tie-break' : ''}</div>
+            <div class="stat-tile-value">${s.gamesA} - ${s.gamesB}</div>
           </div>
         `).join('')
-      : '<div class="match-card-meta">Partido sin terminar</div>';
+      : '<div class="stat-tile"><div class="stat-tile-value">Partido sin terminar</div></div>';
+
+    const infoTiles = [
+      ['Modalidad', escapeHtml(describeConfig(match.config))],
+      ['Fecha', formatDate(match.startedAt)],
+    ];
+    if (duration) infoTiles.push(['Duración', duration]);
+    if (match.club) infoTiles.push(['Club', escapeHtml(match.club)]);
+    if (match.court) infoTiles.push(['Cancha', escapeHtml(match.court)]);
+    if (match.category) infoTiles.push(['Categoría', escapeHtml(match.category)]);
+    if (match.finalState) {
+      infoTiles.push(['Quiebres de saque', `${escapeHtml(match.teamNames.A)}: ${match.finalState.breaksA} &nbsp;·&nbsp; ${escapeHtml(match.teamNames.B)}: ${match.finalState.breaksB}`]);
+    }
+    const infoHtml = infoTiles.map(([l, v]) => `<div class="stat-tile"><div class="stat-tile-label">${l}</div><div class="stat-tile-value">${v}</div></div>`).join('');
 
     content.innerHTML = `
       <h2>${escapeHtml(match.teamNames.A)} vs ${escapeHtml(match.teamNames.B)}</h2>
-      ${winnerName ? `<p><strong style="color:var(--accent);">🏆 Ganó ${escapeHtml(winnerName)}</strong></p>` : ''}
-      <div class="summary-card">
-        ${setsHtml}
-      </div>
-      <div class="summary-card">
-        <div class="match-card-row"><span>Modalidad</span><span>${escapeHtml(describeConfig(match.config))}</span></div>
-        <div class="match-card-row"><span>Fecha</span><span>${formatDate(match.startedAt)}</span></div>
-        ${duration ? `<div class="match-card-row"><span>Duración</span><span>${duration}</span></div>` : ''}
-        ${match.club ? `<div class="match-card-row"><span>Club</span><span>${escapeHtml(match.club)}</span></div>` : ''}
-        ${match.court ? `<div class="match-card-row"><span>Cancha</span><span>${escapeHtml(match.court)}</span></div>` : ''}
-        ${match.category ? `<div class="match-card-row"><span>Categoría</span><span>${escapeHtml(match.category)}</span></div>` : ''}
-        ${match.finalState ? `<div class="match-card-row"><span>Quiebres de saque</span><span>${escapeHtml(match.teamNames.A)} ${match.finalState.breaksA} · ${escapeHtml(match.teamNames.B)} ${match.finalState.breaksB}</span></div>` : ''}
-      </div>
+      ${winnerName ? `<p><strong style="color:var(--accent); font-size:16px;">🏆 Ganó ${escapeHtml(winnerName)}</strong></p>` : ''}
+      <div class="section-title">Resultado</div>
+      <div class="stat-tile-card">${setsHtml}</div>
+      <div class="section-title">Detalles</div>
+      <div class="stat-tile-card">${infoHtml}</div>
       ${statsHtml}
       <button class="btn btn-ghost btn-block" data-action="close-match-detail">Cerrar</button>
     `;

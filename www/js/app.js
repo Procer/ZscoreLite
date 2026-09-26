@@ -2,7 +2,7 @@ import { createMatchController, resumeMatchController } from './match-controller
 import { initSetupWizard } from './ui-setup.js';
 import { initScoreboard } from './ui-scoreboard.js';
 import { initHistory } from './ui-history.js';
-import { seedDefaultPlayersIfEmpty, getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
+import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
 
@@ -36,7 +36,14 @@ const scoreboard = initScoreboard({
     refreshLastMatchButton();
     showView('summary');
   },
+  onPause: () => {
+    showView('home');
+  },
 });
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 function renderSummary(record) {
   const winnerKey = record.finalState?.winner;
@@ -50,12 +57,16 @@ function renderSummary(record) {
     ? Math.max(1, Math.round((record.endedAt - record.startedAt) / 60000))
     : null;
 
-  const lines = [];
-  if (record.club) lines.push(`Club: ${record.club}`);
-  if (record.court) lines.push(`Cancha: ${record.court}`);
-  if (durationMin) lines.push(`Duración: ${durationMin} min`);
-  if (record.finalState) lines.push(`Quiebres: ${record.teamNames.A} ${record.finalState.breaksA} · ${record.teamNames.B} ${record.finalState.breaksB}`);
-  document.getElementById('summary-detail').innerHTML = lines.join('<br/>');
+  const detailTiles = [];
+  if (record.club) detailTiles.push(['Club', escapeHtml(record.club)]);
+  if (record.court) detailTiles.push(['Cancha', escapeHtml(record.court)]);
+  if (durationMin) detailTiles.push(['Duración', `${durationMin} min`]);
+  if (record.finalState) {
+    detailTiles.push(['Quiebres de saque', `${escapeHtml(record.teamNames.A)}: ${record.finalState.breaksA} &nbsp;·&nbsp; ${escapeHtml(record.teamNames.B)}: ${record.finalState.breaksB}`]);
+  }
+  document.getElementById('summary-detail').innerHTML = detailTiles.length
+    ? `<div class="stat-tile-card">${detailTiles.map(([l, v]) => `<div class="stat-tile"><div class="stat-tile-label">${l}</div><div class="stat-tile-value">${v}</div></div>`).join('')}</div>`
+    : '';
 
   const replayed = replayMatch(record.config, record.events || []);
   document.getElementById('summary-stats').innerHTML = renderStatsCard(record.teamNames, replayed.stats);
@@ -73,9 +84,21 @@ document.addEventListener('click', (e) => {
 
   if (action === 'go-home') { showView('home'); return; }
   if (action === 'go-history') { history.render(); showView('history'); return; }
-  if (action === 'go-setup') { setup.resetWizard(); showView('setup'); return; }
+  if (action === 'go-setup') { goToSetup(); return; }
   if (action === 'go-last-match') { openLastMatchDetail(); return; }
 });
+
+async function goToSetup() {
+  const inProgress = await getInProgressMatch();
+  if (inProgress) {
+    openResumePrompt(inProgress, {
+      onDiscard: () => { setup.resetWizard(); showView('setup'); },
+    });
+    return;
+  }
+  setup.resetWizard();
+  showView('setup');
+}
 
 document.addEventListener('navigate', (e) => {
   if (e.detail === 'home') showView('home');
@@ -160,19 +183,14 @@ function initPinGate() {
 }
 
 async function unlockApp() {
-  await seedDefaultPlayersIfEmpty();
   await refreshLastMatchButton();
+  showView('home');
 
   const inProgress = await getInProgressMatch();
-  if (inProgress) {
-    showView('home');
-    openResumePrompt(inProgress);
-  } else {
-    showView('home');
-  }
+  if (inProgress) openResumePrompt(inProgress);
 }
 
-function openResumePrompt(record) {
+function openResumePrompt(record, { onDiscard } = {}) {
   const overlay = document.getElementById('overlay-resume');
   const sets = (record.events || []).length;
   document.getElementById('resume-summary').textContent =
@@ -190,6 +208,7 @@ function openResumePrompt(record) {
       overlay.classList.remove('is-active');
       // Se guarda como terminado (cortado) para que no quede colgado como "en curso".
       saveMatch({ ...record, inProgress: false, endedAt: Date.now() }).catch(() => {});
+      if (onDiscard) onDiscard();
     }
   };
 }

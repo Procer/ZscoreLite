@@ -45,7 +45,7 @@ export function initSetupWizard(onStartMatch) {
       bestOf: 2,
       gamesPerSet: 6,
       targetGames: 4,
-      noAd: false,
+      noAd: true,
       superTiebreak: false,
       teams: { A: { p1: '', p2: '' }, B: { p1: '', p2: '' } },
       firstServer: 'A',
@@ -192,7 +192,7 @@ export function initSetupWizard(onStartMatch) {
         { value: 3, title: 'Mejor de 5' },
       ], wizard.bestOf, (v) => { wizard.bestOf = v; goNext(); });
     } else if (id === 'gamesperset') {
-      renderChoice('¿Games por set?', null, [
+      renderChoice('¿Games por set?', 'Si se empata en games (ej: 6-6), el set se define con un tie-break a 7 puntos (por 2). Es automático, no hay que configurar nada más.', [
         { value: 6, title: '6 games', sub: 'Clásico' },
         { value: 4, title: '4 games', sub: 'Set corto' },
       ], wizard.gamesPerSet, (v) => { wizard.gamesPerSet = v; goNext(); });
@@ -208,10 +208,16 @@ export function initSetupWizard(onStartMatch) {
         { value: false, title: 'No, con ventaja' },
       ], wizard.noAd, (v) => { wizard.noAd = v; goNext(); });
     } else if (id === 'supertiebreak') {
-      renderChoice('¿Set decisivo a súper tie-break?', 'El último set se juega a 10 puntos en vez de a games', [
-        { value: true, title: 'Sí' },
-        { value: false, title: 'No' },
-      ], wizard.superTiebreak, (v) => { wizard.superTiebreak = v; goNext(); });
+      renderChoice(
+        '¿Set decisivo a súper tie-break?',
+        'Si empatan 1 set a 1, el 3er set puede jugarse completo (a games, como los anteriores) o reemplazarse por un solo punto extra a 10 (por 2) para definir el partido más rápido.',
+        [
+          { value: true, title: 'Sí, súper tie-break', sub: 'El 3er set se juega a 10 puntos' },
+          { value: false, title: 'No, set completo', sub: 'El 3er set se juega a games, igual que los demás' },
+        ],
+        wizard.superTiebreak,
+        (v) => { wizard.superTiebreak = v; goNext(); }
+      );
     } else if (id.startsWith('player-')) {
       const [, team, slot] = id.match(/player-([ab])(1|2)/);
       const teamKey = team.toUpperCase();
@@ -223,10 +229,11 @@ export function initSetupWizard(onStartMatch) {
         goNext();
       }, exclude);
     } else if (id === 'server') {
-      renderChoice('¿Quién saca primero?', null, [
+      renderChoice('¿Quién saca primero?', 'Si todavía no lo decidieron (por ejemplo, van a jugar un punto para definirlo en la cancha), podés omitir este paso.', [
         { value: 'A', title: teamPreview('A') },
         { value: 'B', title: teamPreview('B') },
-      ], wizard.firstServer, (v) => { wizard.firstServer = v; goNext(); });
+        { value: 'skip', title: 'Omitir', sub: 'Arranca sacando la Pareja A' },
+      ], wizard.firstServer, (v) => { wizard.firstServer = v === 'skip' ? 'A' : v; goNext(); });
     } else if (id === 'club') {
       renderPick('¿En qué club se juega?', null, clubsCache, (name) => {
         wizard.club = name;

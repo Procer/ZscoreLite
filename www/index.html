@@ -69,22 +69,24 @@
     <div class="tiebreak-banner" id="tiebreak-banner" style="display:none;">TIE-BREAK</div>
     <div class="scoreboard">
       <div class="team-panel team-panel--a" data-action="point" data-team="A">
-        <div class="team-name"><span class="serve-ball" id="serve-dot-a">🎾</span><span id="name-a">Pareja A</span></div>
+        <span class="serve-ball" id="serve-dot-a">🎾</span>
+        <div class="team-name" id="name-a">Pareja A</div>
         <div class="team-point" id="point-a">0</div>
         <div class="team-games">
           <div class="game-pip" id="games-a">0</div>
         </div>
         <div class="sets-row" id="sets-a"></div>
-        <button class="team-subtract-btn" data-action="undo-team" data-team="A" aria-label="Restar tanto a Pareja A">−</button>
+        <button class="team-subtract-btn team-subtract-btn--a" data-action="undo-team" data-team="A" aria-label="Restar tanto a Pareja A">−</button>
       </div>
       <div class="team-panel team-panel--b" data-action="point" data-team="B">
-        <div class="team-name"><span class="serve-ball" id="serve-dot-b">🎾</span><span id="name-b">Pareja B</span></div>
+        <span class="serve-ball" id="serve-dot-b">🎾</span>
+        <div class="team-name" id="name-b">Pareja B</div>
         <div class="team-point" id="point-b">0</div>
         <div class="team-games">
           <div class="game-pip" id="games-b">0</div>
         </div>
         <div class="sets-row" id="sets-b"></div>
-        <button class="team-subtract-btn" data-action="undo-team" data-team="B" aria-label="Restar tanto a Pareja B">−</button>
+        <button class="team-subtract-btn team-subtract-btn--b" data-action="undo-team" data-team="B" aria-label="Restar tanto a Pareja B">−</button>
       </div>
     </div>
   </section>
@@ -94,6 +96,7 @@
     <div class="sheet">
       <h2>Partido en curso</h2>
       <button class="btn btn-ghost btn-block" data-action="undo-point">↩ Deshacer último tanto</button>
+      <button class="btn btn-ghost btn-block" data-action="pause-match">⏸ Pausar y volver al inicio</button>
       <button class="btn btn-danger btn-block" data-action="end-match">Finalizar partido</button>
       <button class="btn btn-ghost btn-block" data-action="close-menu">Volver al marcador</button>
     </div>
@@ -103,7 +106,7 @@
   <section id="view-summary" class="view">
     <div class="summary-winner" id="summary-winner">Ganó Pareja A</div>
     <div class="summary-score" id="summary-score">2 - 1</div>
-    <div class="summary-detail" id="summary-detail"></div>
+    <div class="summary-detail" id="summary-detail" style="width:100%; max-width:380px;"></div>
     <div id="summary-stats" style="width:100%; max-width:380px;"></div>
     <div class="home-actions">
       <button class="btn btn-primary btn-block" data-action="go-home">Volver al inicio</button>

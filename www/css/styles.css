@@ -178,6 +178,16 @@ body {
   overflow-y: auto;
 }
 
+#view-setup .btn {
+  padding: 19px 22px;
+  font-size: 19px;
+}
+
+#view-setup .wizard-search {
+  padding: 16px 16px;
+  font-size: 17px;
+}
+
 .setup-header {
   display: flex;
   align-items: center;
@@ -218,6 +228,11 @@ body {
 
 .option-card .option-title { font-weight: 700; font-size: 15px; }
 .option-card .option-sub { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+
+/* Pasos del asistente: botones y letras más grandes (se leen/tocan mejor) */
+.option-grid--wizard .option-card { padding: 20px 18px; }
+.option-grid--wizard .option-card .option-title { font-size: 19px; }
+.option-grid--wizard .option-card .option-sub { font-size: 14px; margin-top: 5px; }
 
 .option-card.is-selected {
   border-color: var(--accent);
@@ -315,15 +330,16 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 }
 
 .wizard-question {
-  font-size: 22px;
+  font-size: 27px;
   font-weight: 800;
   line-height: 1.3;
 }
 
 .wizard-sub {
-  font-size: 14px;
+  font-size: 16px;
+  line-height: 1.4;
   color: var(--text-dim);
-  margin-top: -10px;
+  margin-top: -6px;
 }
 
 .option-grid--wizard {
@@ -346,8 +362,8 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 13px 20px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text);
 }
@@ -366,6 +382,49 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 
 .summary-card-row { font-size: 15px; }
 .summary-card-row.muted { color: var(--text-dim); font-size: 13px; }
+
+/* ---------- Tarjetas de "dato" (resumen, historial, estadísticas) ---------- */
+/* Etiqueta chica arriba + valor grande abajo: más fácil de leer de un
+   vistazo que una fila "etiqueta: valor" cuando el valor es largo. */
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  text-align: left;
+  margin: 4px 2px 2px;
+}
+
+.stat-tile-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 4px 16px;
+  text-align: left;
+  width: 100%;
+}
+
+.stat-tile {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-tile:last-child { border-bottom: none; }
+
+.stat-tile-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+
+.stat-tile-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+}
 
 .match-summary-line {
   font-size: 13px;
@@ -397,7 +456,7 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3vh;
+  gap: 1.6vh;
   position: relative;
   cursor: pointer;
   user-select: none;
@@ -412,9 +471,6 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   font-size: clamp(15px, 2.4vw, 24px);
   font-weight: 700;
   color: var(--text-dim);
-  display: flex;
-  align-items: center;
-  gap: 8px;
   max-width: 88%;
   text-align: center;
   line-height: 1.2;
@@ -424,19 +480,21 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 }
 
 .serve-ball {
-  font-size: 1.1em;
+  display: block;
+  font-size: clamp(28px, 6vw, 52px);
   line-height: 1;
-  flex: none;
   opacity: 0;
-  transform: scale(0.7);
+  transform: scale(0.6);
   transition: opacity 0.15s ease, transform 0.15s ease;
-  filter: drop-shadow(0 0 6px rgba(140, 226, 58, 0.6));
+  filter: drop-shadow(0 0 10px rgba(140, 226, 58, 0.7));
 }
 
 .serve-ball.is-serving { opacity: 1; transform: scale(1); }
 
 .team-point {
-  font-size: clamp(84px, 22vw, 280px);
+  /* vh en vez de vw: el marcador siempre va horizontal, así que el alto de
+     pantalla es el límite real (en landscape el ancho sobra). */
+  font-size: clamp(100px, 42vh, 320px);
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -517,15 +575,16 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 }
 
 .team-subtract-btn {
-  position: relative;
+  position: absolute;
+  bottom: calc(16px + var(--safe-bottom));
   z-index: 6;
-  width: 60px;
-  height: 60px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   background: rgba(255, 92, 92, 0.12);
   border: 2px solid rgba(255, 92, 92, 0.45);
   color: var(--danger);
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 700;
   line-height: 1;
   display: flex;
@@ -533,6 +592,10 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   justify-content: center;
   padding-bottom: 2px;
 }
+
+/* Alejado del centro (donde se toca para sumar) para no restar por error */
+.team-subtract-btn--a { left: calc(16px + var(--safe-left)); }
+.team-subtract-btn--b { right: calc(16px + var(--safe-right)); }
 
 .team-subtract-btn:active {
   background: rgba(255, 92, 92, 0.25);

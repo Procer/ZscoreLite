@@ -123,17 +123,3 @@ export const listCourtNames = () => listNames('courts');
 export async function deletePlayerName(name) {
   return tx('players', 'readwrite', (store) => store.delete(name));
 }
-
-const SEED_PLAYERS = [
-  'Juan Pérez', 'Pedro Gómez', 'Lucas Fernández', 'Mateo Sosa',
-  'Martín Díaz', 'Nicolás Romero', 'Federico López', 'Santiago Torres',
-];
-
-/** Precarga una lista inicial de jugadores, solo si todavía no hay ninguno. */
-export async function seedDefaultPlayersIfEmpty() {
-  const existing = await listPlayerNames();
-  if (existing.length > 0) return;
-  await Promise.all(SEED_PLAYERS.map((name, i) =>
-    tx('players', 'readwrite', (store) => store.put({ name, lastUsed: i }))
-  ));
-}
