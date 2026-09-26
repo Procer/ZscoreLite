@@ -78,6 +78,18 @@ export async function deleteMatch(id) {
   return tx('matches', 'readwrite', (store) => store.delete(id));
 }
 
+/** Partido en curso más reciente (para ofrecer "continuar" al abrir la app). */
+export async function getInProgressMatch() {
+  const all = await listMatches();
+  return all.find((m) => m.inProgress) || null;
+}
+
+/** Último partido terminado (para el acceso rápido "ver partido anterior"). */
+export async function getLastFinishedMatch() {
+  const all = await listMatches();
+  return all.find((m) => !m.inProgress && m.finalState) || null;
+}
+
 async function upsertName(storeName, name) {
   const clean = (name || '').trim();
   if (!clean) return;
@@ -107,3 +119,21 @@ export const saveClubName = (name) => upsertName('clubs', name);
 export const listClubNames = () => listNames('clubs');
 export const saveCourtName = (name) => upsertName('courts', name);
 export const listCourtNames = () => listNames('courts');
+
+export async function deletePlayerName(name) {
+  return tx('players', 'readwrite', (store) => store.delete(name));
+}
+
+const SEED_PLAYERS = [
+  'Juan Pérez', 'Pedro Gómez', 'Lucas Fernández', 'Mateo Sosa',
+  'Martín Díaz', 'Nicolás Romero', 'Federico López', 'Santiago Torres',
+];
+
+/** Precarga una lista inicial de jugadores, solo si todavía no hay ninguno. */
+export async function seedDefaultPlayersIfEmpty() {
+  const existing = await listPlayerNames();
+  if (existing.length > 0) return;
+  await Promise.all(SEED_PLAYERS.map((name, i) =>
+    tx('players', 'readwrite', (store) => store.put({ name, lastUsed: i }))
+  ));
+}

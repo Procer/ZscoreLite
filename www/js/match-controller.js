@@ -13,9 +13,11 @@ function teamLabel(names) {
  *   teams: { A: {p1, p2}, B: {p1, p2} },
  *   voiceLevel: 'full' | 'simple' | 'off'
  * }
+ * resumeEvents: eventos ya jugados de un partido guardado (para continuar
+ * un partido que quedó en curso al cerrar la app).
  */
-export function createMatchController(meta) {
-  const events = [];
+export function createMatchController(meta, resumeEvents) {
+  const events = resumeEvents ? resumeEvents.slice() : [];
   const config = defaultConfig(meta.config);
   const teamNames = { A: teamLabel(meta.teams.A), B: teamLabel(meta.teams.B) };
   const announcer = meta.voiceLevel !== 'off' ? createAnnouncer(meta.voiceLevel) : null;
@@ -37,9 +39,12 @@ export function createMatchController(meta) {
       category: meta.category || '',
       teams: meta.teams,
       teamNames,
+      voiceLevel: meta.voiceLevel,
       startedAt: events.length ? events[0].t : Date.now(),
+      updatedAt: Date.now(),
       endedAt: finalize ? (state.endedAt || Date.now()) : null,
       inProgress: !finalize,
+      events: events.slice(), // registro completo del partido, tanto por tanto
       finalState: finalize
         ? {
             winner: state.winner,
@@ -124,4 +129,19 @@ export function createMatchController(meta) {
   }
 
   return { addPoint, undo, undoLastForTeam, finalizeAndSave, getState, subscribe, teamNames, config };
+}
+
+/** Reconstruye un controlador a partir de un partido guardado en curso. */
+export function resumeMatchController(record) {
+  const meta = {
+    id: record.id,
+    sport: record.sport,
+    config: record.config,
+    club: record.club,
+    court: record.court,
+    category: record.category,
+    teams: record.teams,
+    voiceLevel: record.voiceLevel || 'off',
+  };
+  return createMatchController(meta, record.events || []);
 }

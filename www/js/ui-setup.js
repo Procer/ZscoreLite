@@ -7,49 +7,53 @@ import {
 import { initRemoteButton, onRemotePress } from './remote-button.js';
 
 initRemoteButton();
-onRemotePress(() => {
-  const status = document.getElementById('remote-test-status');
-  if (status) {
-    status.textContent = '¡Detectado! El control remoto funciona en este celular.';
-    status.style.color = 'var(--accent)';
-  }
-});
 
-const steps = ['modalidad', 'parejas', 'contexto'];
-const stepTitles = { modalidad: 'Modalidad', parejas: 'Parejas', contexto: 'Detalles' };
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Orden maestro de preguntas. isRelevant() decide cuáles se saltean según
+// las respuestas ya dadas (así el asistente "guía" sin mostrar pasos que no aplican).
+const STEP_ORDER = [
+  'mode', 'bestof', 'gamesperset', 'targetgames', 'noad', 'supertiebreak',
+  'player-a1', 'player-a2', 'player-b1', 'player-b2', 'server',
+  'club', 'court', 'category', 'voice', 'summary',
+];
+
+function isRelevant(id, w) {
+  if (id === 'bestof' || id === 'gamesperset') return w.mode === 'sets';
+  if (id === 'targetgames') return w.mode === 'games';
+  if (id === 'supertiebreak') return w.mode === 'sets' && w.bestOf > 1;
+  return true;
+}
+
+function relevantSteps(w) {
+  return STEP_ORDER.filter((id) => isRelevant(id, w));
+}
 
 export function initSetupWizard(onStartMatch) {
-  const root = document.getElementById('view-setup');
-  const wizard = {
-    stepIndex: 0,
-    mode: 'sets',
-    bestOf: 2, // setsToWin
-    gamesPerSet: 6,
-    noAd: false,
-    superTiebreak: false,
-    targetGames: 4,
-    firstServer: 'A',
-    voiceLevel: 'full',
-  };
+  const stepEl = document.getElementById('wizard-step');
+  const progressFill = document.getElementById('wizard-progress-fill');
+  const visitedStack = [];
+  let currentStepId = null;
 
-  function selectCard(groupSelector, attr, value, container = root) {
-    container.querySelectorAll(groupSelector).forEach((el) => {
-      el.classList.toggle('is-selected', el.dataset[attr] === String(value));
-    });
-  }
+  let wizard, playersCache, clubsCache, courtsCache;
 
-  function renderStep() {
-    const stepName = steps[wizard.stepIndex];
-    root.querySelectorAll('.step').forEach((el) => {
-      el.classList.toggle('is-active', el.dataset.step === stepName);
-    });
-    document.getElementById('setup-step-title').textContent = stepTitles[stepName];
-    if (stepName === 'contexto') updateSummaryLine();
-  }
-
-  function updateSummaryLine() {
-    const cfg = buildConfig();
-    document.getElementById('setup-summary').textContent = describeConfig(cfg);
+  function freshWizard() {
+    return {
+      mode: 'sets',
+      bestOf: 2,
+      gamesPerSet: 6,
+      targetGames: 4,
+      noAd: false,
+      superTiebreak: false,
+      teams: { A: { p1: '', p2: '' }, B: { p1: '', p2: '' } },
+      firstServer: 'A',
+      club: '',
+      court: '',
+      category: '',
+      voiceLevel: 'full',
+    };
   }
 
   function buildConfig() {
@@ -64,141 +68,258 @@ export function initSetupWizard(onStartMatch) {
     };
   }
 
-  // ---- Paso 1: modalidad ----
-  document.getElementById('mode-options').querySelectorAll('.option-card').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      wizard.mode = btn.dataset.mode;
-      selectCard('#mode-options .option-card', 'mode', wizard.mode);
-      document.getElementById('sets-options').style.display = wizard.mode === 'sets' ? '' : 'none';
-      document.getElementById('games-options').style.display = wizard.mode === 'games' ? '' : 'none';
-    });
-  });
-  selectCard('#mode-options .option-card', 'mode', wizard.mode);
-
-  document.getElementById('bestof-options').querySelectorAll('.option-card').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      wizard.bestOf = Number(btn.dataset.bestof);
-      selectCard('#bestof-options .option-card', 'bestof', wizard.bestOf);
-      const stRow = document.getElementById('supertiebreak-row');
-      stRow.style.display = wizard.bestOf > 1 ? '' : 'none';
-    });
-  });
-  selectCard('#bestof-options .option-card', 'bestof', wizard.bestOf);
-
-  document.getElementById('gamesperset-options').querySelectorAll('.option-card').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      wizard.gamesPerSet = Number(btn.dataset.games);
-      selectCard('#gamesperset-options .option-card', 'games', wizard.gamesPerSet);
-    });
-  });
-  selectCard('#gamesperset-options .option-card', 'games', wizard.gamesPerSet);
-
-  document.getElementById('chk-noad').addEventListener('change', (e) => { wizard.noAd = e.target.checked; });
-  document.getElementById('chk-supertiebreak').addEventListener('change', (e) => { wizard.superTiebreak = e.target.checked; });
-  document.getElementById('input-targetgames').addEventListener('input', (e) => {
-    wizard.targetGames = Math.max(2, Number(e.target.value) || 4);
-  });
-
-  // ---- Paso 2: parejas ----
-  document.querySelectorAll('[data-server]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      wizard.firstServer = btn.dataset.server;
-      selectCard('[data-server]', 'server', wizard.firstServer, document);
-    });
-  });
-  selectCard('[data-server]', 'server', wizard.firstServer, document);
-
-  // ---- Paso 3: voz ----
-  document.getElementById('voice-options').querySelectorAll('.option-card').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      wizard.voiceLevel = btn.dataset.voice;
-      selectCard('#voice-options .option-card', 'voice', wizard.voiceLevel);
-    });
-  });
-  selectCard('#voice-options .option-card', 'voice', wizard.voiceLevel);
-
-  async function populateDatalists() {
-    const [players, clubs, courts] = await Promise.all([listPlayerNames(), listClubNames(), listCourtNames()]);
-    fillDatalist('dl-players', players);
-    fillDatalist('dl-clubs', clubs);
-    fillDatalist('dl-courts', courts);
+  function updateProgress() {
+    const seq = relevantSteps(wizard).filter((id) => id !== 'summary');
+    const idx = seq.indexOf(currentStepId);
+    const pct = idx < 0 ? 100 : Math.round(((idx + 1) / seq.length) * 100);
+    progressFill.style.width = pct + '%';
   }
 
-  function fillDatalist(id, values) {
-    const dl = document.getElementById(id);
-    dl.innerHTML = values.map((v) => `<option value="${escapeHtml(v)}"></option>`).join('');
+  function goTo(id, { recordHistory = true } = {}) {
+    if (recordHistory && currentStepId) visitedStack.push(currentStepId);
+    currentStepId = id;
+    render(id);
+    updateProgress();
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function goNext() {
+    const seq = STEP_ORDER;
+    let idx = seq.indexOf(currentStepId) + 1;
+    while (idx < seq.length && !isRelevant(seq[idx], wizard)) idx++;
+    goTo(seq[idx] ?? 'summary');
   }
 
-  function resetWizard() {
-    wizard.stepIndex = 0;
-    ['input-a1', 'input-a2', 'input-b1', 'input-b2', 'input-club', 'input-court', 'input-category'].forEach((id) => {
-      document.getElementById(id).value = '';
-    });
-    document.getElementById('remote-test-status').textContent = 'Todavía no se detectó ninguna pulsación';
-    renderStep();
-    populateDatalists();
-  }
-
-  document.getElementById('view-setup').addEventListener('click', async (e) => {
-    const action = e.target.closest('[data-action]')?.dataset.action;
-    if (!action) return;
-
-    if (action === 'step-next') {
-      if (wizard.stepIndex < steps.length - 1) {
-        wizard.stepIndex += 1;
-        renderStep();
-      }
+  function goBack() {
+    if (visitedStack.length === 0) {
+      document.dispatchEvent(new CustomEvent('navigate', { detail: 'home' }));
       return;
     }
+    currentStepId = visitedStack.pop();
+    render(currentStepId);
+    updateProgress();
+  }
 
-    if (action === 'setup-back') {
-      if (wizard.stepIndex > 0) {
-        wizard.stepIndex -= 1;
-        renderStep();
+  // ---------- Renderizadores de tipos de paso ----------
+
+  function renderChoice(question, sub, options, currentValue, onPick) {
+    stepEl.innerHTML = `
+      <div class="wizard-question">${question}</div>
+      ${sub ? `<div class="wizard-sub">${sub}</div>` : ''}
+      <div class="option-grid option-grid--wizard" id="wizard-options"></div>
+    `;
+    const grid = document.getElementById('wizard-options');
+    grid.innerHTML = options.map((opt) => `
+      <button class="option-card${opt.value === currentValue ? ' is-selected' : ''}" data-value="${escapeHtml(String(opt.value))}">
+        <div class="option-title">${escapeHtml(opt.title)}</div>
+        ${opt.sub ? `<div class="option-sub">${escapeHtml(opt.sub)}</div>` : ''}
+      </button>
+    `).join('');
+    grid.querySelectorAll('.option-card').forEach((btn, i) => {
+      btn.addEventListener('click', () => onPick(options[i].value));
+    });
+  }
+
+  function renderPick(question, sub, items, onPick, excludeValues = []) {
+    stepEl.innerHTML = `
+      <div class="wizard-question">${question}</div>
+      ${sub ? `<div class="wizard-sub">${sub}</div>` : ''}
+      <input type="text" class="wizard-search" id="wizard-search" placeholder="Buscar o escribir nuevo..." autocomplete="off" />
+      <div class="chip-list" id="wizard-chip-list"></div>
+      <button class="btn btn-primary btn-block" id="wizard-add-btn" style="display:none;"></button>
+    `;
+    const input = document.getElementById('wizard-search');
+    const chipList = document.getElementById('wizard-chip-list');
+    const addBtn = document.getElementById('wizard-add-btn');
+
+    function draw(filterText) {
+      const f = (filterText || '').trim().toLowerCase();
+      const visible = items.filter((it) => !excludeValues.includes(it) && it.toLowerCase().includes(f));
+      chipList.innerHTML = visible.map((it) => `<button class="chip" data-value="${escapeHtml(it)}">${escapeHtml(it)}</button>`).join('');
+      chipList.querySelectorAll('.chip').forEach((btn) => {
+        btn.addEventListener('click', () => onPick(btn.dataset.value));
+      });
+      const exact = items.some((it) => it.toLowerCase() === f);
+      if (f && !exact) {
+        addBtn.style.display = '';
+        addBtn.textContent = `Agregar "${filterText.trim()}"`;
       } else {
-        document.dispatchEvent(new CustomEvent('navigate', { detail: 'home' }));
+        addBtn.style.display = 'none';
       }
-      return;
     }
+    draw('');
+    input.addEventListener('input', () => draw(input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const val = input.value.trim();
+        if (val) onPick(val);
+      }
+    });
+    addBtn.addEventListener('click', () => {
+      const val = input.value.trim();
+      if (val) onPick(val);
+    });
+  }
 
-    if (action === 'test-remote') {
+  function renderText(question, sub, currentValue, { optional = false } = {}, onDone) {
+    stepEl.innerHTML = `
+      <div class="wizard-question">${question}</div>
+      ${sub ? `<div class="wizard-sub">${sub}</div>` : ''}
+      <input type="text" class="wizard-search" id="wizard-text" value="${escapeHtml(currentValue || '')}" autocomplete="off" />
+      <div class="step-actions">
+        ${optional ? '<button class="btn btn-ghost btn-block" id="wizard-skip">Omitir</button>' : ''}
+        <button class="btn btn-primary btn-block" id="wizard-continue">Continuar</button>
+      </div>
+    `;
+    const input = document.getElementById('wizard-text');
+    input.focus();
+    document.getElementById('wizard-continue').addEventListener('click', () => onDone(input.value.trim()));
+    document.getElementById('wizard-skip')?.addEventListener('click', () => onDone(''));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') onDone(input.value.trim()); });
+  }
+
+  // ---------- Definición de cada paso ----------
+
+  function render(id) {
+    if (id === 'mode') {
+      renderChoice('¿Cómo se juega?', null, [
+        { value: 'sets', title: 'Partido a sets', sub: 'Mejor de 1, 3 o 5 sets' },
+        { value: 'games', title: 'A X games', sub: 'Formato social, rotación de parejas' },
+      ], wizard.mode, (v) => { wizard.mode = v; goNext(); });
+    } else if (id === 'bestof') {
+      renderChoice('¿Mejor de cuántos sets?', null, [
+        { value: 1, title: '1 set' },
+        { value: 2, title: 'Mejor de 3' },
+        { value: 3, title: 'Mejor de 5' },
+      ], wizard.bestOf, (v) => { wizard.bestOf = v; goNext(); });
+    } else if (id === 'gamesperset') {
+      renderChoice('¿Games por set?', null, [
+        { value: 6, title: '6 games', sub: 'Clásico' },
+        { value: 4, title: '4 games', sub: 'Set corto' },
+      ], wizard.gamesPerSet, (v) => { wizard.gamesPerSet = v; goNext(); });
+    } else if (id === 'targetgames') {
+      renderChoice('¿A cuántos games se juega?', 'Formato social para ir rotando parejas', [
+        { value: 4, title: '4 games' },
+        { value: 6, title: '6 games' },
+        { value: 8, title: '8 games' },
+      ], wizard.targetGames, (v) => { wizard.targetGames = v; goNext(); });
+    } else if (id === 'noad') {
+      renderChoice('¿Punto de oro?', 'Muerte súbita en 40-40, sin ventaja', [
+        { value: true, title: 'Sí, punto de oro' },
+        { value: false, title: 'No, con ventaja' },
+      ], wizard.noAd, (v) => { wizard.noAd = v; goNext(); });
+    } else if (id === 'supertiebreak') {
+      renderChoice('¿Set decisivo a súper tie-break?', 'El último set se juega a 10 puntos en vez de a games', [
+        { value: true, title: 'Sí' },
+        { value: false, title: 'No' },
+      ], wizard.superTiebreak, (v) => { wizard.superTiebreak = v; goNext(); });
+    } else if (id.startsWith('player-')) {
+      const [, team, slot] = id.match(/player-([ab])(1|2)/);
+      const teamKey = team.toUpperCase();
+      const label = `¿Jugador ${slot} de la Pareja ${teamKey}?`;
+      const exclude = [wizard.teams.A.p1, wizard.teams.A.p2, wizard.teams.B.p1, wizard.teams.B.p2].filter(Boolean);
+      renderPick(label, null, playersCache, (name) => {
+        wizard.teams[teamKey][`p${slot}`] = name;
+        savePlayerName(name).then(() => listPlayerNames()).then((list) => { playersCache = list; });
+        goNext();
+      }, exclude);
+    } else if (id === 'server') {
+      renderChoice('¿Quién saca primero?', null, [
+        { value: 'A', title: teamPreview('A') },
+        { value: 'B', title: teamPreview('B') },
+      ], wizard.firstServer, (v) => { wizard.firstServer = v; goNext(); });
+    } else if (id === 'club') {
+      renderPick('¿En qué club se juega?', null, clubsCache, (name) => {
+        wizard.club = name;
+        saveClubName(name).then(() => listClubNames()).then((list) => { clubsCache = list; });
+        goNext();
+      });
+    } else if (id === 'court') {
+      renderPick('¿En qué cancha?', null, courtsCache, (name) => {
+        wizard.court = name;
+        saveCourtName(name).then(() => listCourtNames()).then((list) => { courtsCache = list; });
+        goNext();
+      });
+    } else if (id === 'category') {
+      renderText('¿Categoría?', 'Opcional', wizard.category, { optional: true }, (val) => {
+        wizard.category = val;
+        goNext();
+      });
+    } else if (id === 'voice') {
+      renderChoice('¿Anuncio por voz?', null, [
+        { value: 'full', title: 'Completo', sub: 'Tanto a tanto, estilo árbitro' },
+        { value: 'simple', title: 'Simple', sub: 'Solo el resultado' },
+        { value: 'off', title: 'Sin voz' },
+      ], wizard.voiceLevel, (v) => { wizard.voiceLevel = v; goNext(); });
+    } else if (id === 'summary') {
+      renderSummary();
+    }
+  }
+
+  function teamPreview(teamKey) {
+    const t = wizard.teams[teamKey];
+    const parts = [t.p1, t.p2].filter(Boolean);
+    return parts.length ? parts.join(' / ') : `Pareja ${teamKey}`;
+  }
+
+  function renderSummary() {
+    const cfg = buildConfig();
+    stepEl.innerHTML = `
+      <div class="wizard-question">Todo listo</div>
+      <div class="summary-card">
+        <div class="summary-card-row"><strong>${escapeHtml(teamPreview('A'))}</strong> vs <strong>${escapeHtml(teamPreview('B'))}</strong></div>
+        <div class="summary-card-row muted">${escapeHtml(describeConfig(cfg))}</div>
+        <div class="summary-card-row muted">${[wizard.club, wizard.court, wizard.category].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+        <div class="summary-card-row muted">Saca primero: ${escapeHtml(teamPreview(wizard.firstServer))}</div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:600;">Probar control remoto Bluetooth</div>
+          <div class="match-card-meta" id="remote-test-status">Todavía no se detectó ninguna pulsación</div>
+        </div>
+        <button class="btn btn-ghost" id="wizard-test-remote" style="padding:10px 14px;">Probar</button>
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-primary btn-block" id="wizard-start">Empezar partido</button>
+      </div>
+    `;
+    document.getElementById('wizard-test-remote').addEventListener('click', () => {
       const status = document.getElementById('remote-test-status');
       status.textContent = 'Esperando... presioná el botón del control ahora';
       status.style.color = '';
-      return;
-    }
-
-    if (action === 'start-match') {
-      const a1 = document.getElementById('input-a1').value.trim();
-      const a2 = document.getElementById('input-a2').value.trim();
-      const b1 = document.getElementById('input-b1').value.trim();
-      const b2 = document.getElementById('input-b2').value.trim();
-      const club = document.getElementById('input-club').value.trim();
-      const court = document.getElementById('input-court').value.trim();
-      const category = document.getElementById('input-category').value.trim();
-
-      await Promise.all([a1, a2, b1, b2].filter(Boolean).map(savePlayerName));
-      if (club) await saveClubName(club);
-      if (court) await saveCourtName(court);
-
+    });
+    document.getElementById('wizard-start').addEventListener('click', async () => {
       const meta = {
         id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         sport: 'padel',
         config: buildConfig(),
-        teams: { A: { p1: a1, p2: a2 }, B: { p1: b1, p2: b2 } },
-        club, court, category,
+        teams: wizard.teams,
+        club: wizard.club, court: wizard.court, category: wizard.category,
         voiceLevel: wizard.voiceLevel,
       };
       onStartMatch(meta);
+    });
+  }
+
+  onRemotePress(() => {
+    const status = document.getElementById('remote-test-status');
+    if (status) {
+      status.textContent = '¡Detectado! El control remoto funciona en este celular.';
+      status.style.color = 'var(--accent)';
     }
   });
 
-  renderStep();
-  populateDatalists();
+  document.getElementById('view-setup').addEventListener('click', (e) => {
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (action === 'setup-back') goBack();
+  });
+
+  async function resetWizard() {
+    wizard = freshWizard();
+    visitedStack.length = 0;
+    [playersCache, clubsCache, courtsCache] = await Promise.all([listPlayerNames(), listClubNames(), listCourtNames()]);
+    currentStepId = null;
+    goTo('mode', { recordHistory: false });
+  }
 
   return { resetWizard };
 }

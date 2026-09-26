@@ -59,9 +59,18 @@ body {
 /* ---------- Home ---------- */
 
 #view-home {
+  position: relative;
   align-items: center;
   justify-content: center;
   gap: 28px;
+  padding: 32px;
+  text-align: center;
+}
+
+#view-pin {
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
   padding: 32px;
   text-align: center;
 }
@@ -71,6 +80,40 @@ body {
   height: 96px;
   border-radius: 24px;
   box-shadow: 0 0 40px rgba(140, 226, 58, 0.25);
+}
+
+.home-logo--big {
+  width: 148px;
+  height: 148px;
+  border-radius: 34px;
+}
+
+.home-footer {
+  position: absolute;
+  bottom: calc(20px + var(--safe-bottom));
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.home-footer a {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.home-footer a:active { color: var(--accent); }
+.home-footer-sep { color: var(--border); }
+
+#pin-input {
+  width: 200px;
+  text-align: center;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 24px;
+  padding: 14px 0 14px 24px;
 }
 
 .home-title {
@@ -181,7 +224,7 @@ body {
   background: rgba(140, 226, 58, 0.08);
 }
 
-input[type="text"], input[type="number"], select {
+input[type="text"], input[type="number"], input[type="tel"], input[type="password"], select {
   width: 100%;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -244,6 +287,86 @@ input[type="text"], input[type="number"], select {
   margin-top: 8px;
 }
 
+.wizard-progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-elevated-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.wizard-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 0.2s ease;
+}
+
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: wizard-fade-in 0.15s ease;
+}
+
+@keyframes wizard-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wizard-question {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.wizard-sub {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-top: -10px;
+}
+
+.option-grid--wizard {
+  grid-template-columns: 1fr;
+}
+
+.wizard-search {
+  width: 100%;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.chip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chip:active { border-color: var(--accent); }
+
+.summary-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-card-row { font-size: 15px; }
+.summary-card-row.muted { color: var(--text-dim); font-size: 13px; }
+
 .match-summary-line {
   font-size: 13px;
   color: var(--accent);
@@ -267,14 +390,17 @@ input[type="text"], input[type="number"], select {
 
 .team-panel {
   padding: 12px;
+  padding-top: calc(64px + var(--safe-top));
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4vh;
+  gap: 3vh;
   position: relative;
+  cursor: pointer;
+  user-select: none;
 }
 
 .team-panel:active { filter: brightness(1.08); }
@@ -283,32 +409,34 @@ input[type="text"], input[type="number"], select {
 .team-panel--b { background: radial-gradient(circle at 50% 40%, rgba(63,169,245,0.07), transparent 60%); border-left: 1px solid var(--border); }
 
 .team-name {
-  font-size: clamp(16px, 2.6vw, 26px);
+  font-size: clamp(15px, 2.4vw, 24px);
   font-weight: 700;
   color: var(--text-dim);
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: 90%;
+  max-width: 88%;
   text-align: center;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.serve-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
+.serve-ball {
+  font-size: 1.1em;
+  line-height: 1;
   flex: none;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transform: scale(0.7);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  filter: drop-shadow(0 0 6px rgba(140, 226, 58, 0.6));
 }
 
-.serve-dot.is-serving { opacity: 1; }
+.serve-ball.is-serving { opacity: 1; transform: scale(1); }
 
 .team-point {
-  font-size: clamp(64px, 16vw, 200px);
+  font-size: clamp(84px, 22vw, 280px);
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -388,20 +516,16 @@ input[type="text"], input[type="number"], select {
   backdrop-filter: blur(6px);
 }
 
-.undo-fab {
-  position: absolute;
-  left: 50%;
-  bottom: calc(14px + var(--safe-bottom));
-  transform: translateX(-50%);
+.team-subtract-btn {
+  position: relative;
   z-index: 6;
-  width: 54px;
-  height: 54px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  background: rgba(21, 26, 34, 0.9);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(6px);
-  color: var(--text-dim);
-  font-size: 30px;
+  background: rgba(255, 92, 92, 0.12);
+  border: 2px solid rgba(255, 92, 92, 0.45);
+  color: var(--danger);
+  font-size: 34px;
   font-weight: 700;
   line-height: 1;
   display: flex;
@@ -410,10 +534,9 @@ input[type="text"], input[type="number"], select {
   padding-bottom: 2px;
 }
 
-.undo-fab:active {
-  color: var(--danger);
-  border-color: var(--danger);
-  transform: translateX(-50%) scale(0.92);
+.team-subtract-btn:active {
+  background: rgba(255, 92, 92, 0.25);
+  transform: scale(0.92);
 }
 
 .tiebreak-banner {

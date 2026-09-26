@@ -128,8 +128,8 @@ export function initScoreboard({ onMatchFinished }) {
       overlayMenu.classList.add('is-active');
       return;
     }
-    if (action === 'undo-point' && controller) {
-      controller.undo();
+    if (action === 'undo-team' && controller) {
+      controller.undoLastForTeam(el.dataset.team);
       return;
     }
   });
