@@ -1,5 +1,6 @@
 import { listMatches } from './db.js';
-import { describeConfig } from './scoring-engine.js';
+import { describeConfig, replayMatch } from './scoring-engine.js';
+import { renderStatsCard } from './match-stats-view.js';
 
 function formatDate(ts) {
   if (!ts) return '';
@@ -57,6 +58,8 @@ export function initHistory() {
     const duration = formatDuration(match.startedAt, match.endedAt);
     const sets = match.finalState?.completedSets || [];
     const winnerName = match.finalState ? match.teamNames[match.finalState.winner] : null;
+    const replayed = replayMatch(match.config, match.events || []);
+    const statsHtml = renderStatsCard(match.teamNames, replayed.stats);
 
     const setsHtml = sets.length
       ? sets.map((s, i) => `
@@ -81,8 +84,8 @@ export function initHistory() {
         ${match.court ? `<div class="match-card-row"><span>Cancha</span><span>${escapeHtml(match.court)}</span></div>` : ''}
         ${match.category ? `<div class="match-card-row"><span>Categoría</span><span>${escapeHtml(match.category)}</span></div>` : ''}
         ${match.finalState ? `<div class="match-card-row"><span>Quiebres de saque</span><span>${escapeHtml(match.teamNames.A)} ${match.finalState.breaksA} · ${escapeHtml(match.teamNames.B)} ${match.finalState.breaksB}</span></div>` : ''}
-        <div class="match-card-row"><span>Tantos jugados</span><span>${(match.events || []).length}</span></div>
       </div>
+      ${statsHtml}
       <button class="btn btn-ghost btn-block" data-action="close-match-detail">Cerrar</button>
     `;
     overlay.classList.add('is-active');

@@ -614,6 +614,7 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   padding: 32px;
   gap: 20px;
   text-align: center;
+  overflow-y: auto;
 }
 
 .summary-winner { font-size: 24px; font-weight: 800; color: var(--accent); }

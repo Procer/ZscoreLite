@@ -3,6 +3,8 @@ import { initSetupWizard } from './ui-setup.js';
 import { initScoreboard } from './ui-scoreboard.js';
 import { initHistory } from './ui-history.js';
 import { seedDefaultPlayersIfEmpty, getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
+import { replayMatch } from './scoring-engine.js';
+import { renderStatsCard } from './match-stats-view.js';
 
 const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history'];
 const PIN_KEY = 'zscoreLitePin';
@@ -54,6 +56,9 @@ function renderSummary(record) {
   if (durationMin) lines.push(`Duración: ${durationMin} min`);
   if (record.finalState) lines.push(`Quiebres: ${record.teamNames.A} ${record.finalState.breaksA} · ${record.teamNames.B} ${record.finalState.breaksB}`);
   document.getElementById('summary-detail').innerHTML = lines.join('<br/>');
+
+  const replayed = replayMatch(record.config, record.events || []);
+  document.getElementById('summary-stats').innerHTML = renderStatsCard(record.teamNames, replayed.stats);
 }
 
 async function refreshLastMatchButton() {

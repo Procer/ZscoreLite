@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zscore-lite-v1';
+const CACHE_NAME = 'zscore-lite-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const CORE_ASSETS = [
   './js/remote-button.js',
   './js/wakelock.js',
   './js/match-controller.js',
+  './js/match-stats-view.js',
   './js/ui-setup.js',
   './js/ui-scoreboard.js',
   './js/ui-history.js',
@@ -34,20 +35,30 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Íconos: no cambian nunca, cache-first (más rápido, no hace falta red).
+// Todo lo demás (HTML/CSS/JS/manifest): red primero, para que las
+// actualizaciones se vean apenas hay conexión. Si no hay red (cancha sin
+// señal), cae a la copia guardada y la app sigue funcionando igual.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const isIcon = new URL(event.request.url).pathname.includes('/icons/');
+
+  if (isIcon) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (response.ok && response.type === 'basic') {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

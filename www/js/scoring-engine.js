@@ -43,6 +43,19 @@ function evaluateBreak(a, b, target) {
   return { over: false };
 }
 
+function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
+
+/**
+ * Quién saca el punto número `pointNumber` (1-indexado) dentro de un tie-break,
+ * dado quién sacó el primer punto. Regla real: el primer punto lo saca un
+ * equipo, y a partir de ahí se alterna cada 2 puntos (1, 2-2, 2-2, ...).
+ */
+function tiebreakServerAt(pointNumber, initialServer) {
+  if (pointNumber <= 1) return initialServer;
+  const block = Math.floor((pointNumber - 2) / 2);
+  return block % 2 === 0 ? otherTeam(initialServer) : initialServer;
+}
+
 function pointLabel(mine, other, noAd) {
   if (mine < 3 && other < 3) return POINT_LABELS[mine];
   if (noAd && mine >= 3 && other >= 3) return mine === other ? 'Punto de oro' : POINT_LABELS[3];
@@ -135,6 +148,7 @@ export function replayMatch(config, events) {
       // El que saca el tie-break es el que le tocaría sacar en el siguiente game
       state.server = winner === serverAtGameStart ? otherTeam(serverAtGameStart) : serverAtGameStart;
       serverAtGameStart = state.server;
+      tiebreakInitialServer = state.server;
       return;
     }
     if (setEval.over) {
@@ -176,15 +190,20 @@ export function replayMatch(config, events) {
     if (cfg.superTiebreakDecider && isDecidingSetNow()) {
       state.inTiebreak = true;
       state.isSuperTiebreakNow = true;
+      tiebreakInitialServer = state.server;
     }
   }
 
-  function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
+  let tiebreakInitialServer = null;
 
   for (const ev of events) {
     if (state.matchOver) break;
     state.lastEventTeam = ev.team;
-    state.pointLog.push({ team: ev.team, t: ev.t });
+
+    const pointServer = state.inTiebreak
+      ? tiebreakServerAt(state.tiebreakA + state.tiebreakB + 1, tiebreakInitialServer)
+      : state.server;
+    state.pointLog.push({ team: ev.team, t: ev.t, server: pointServer });
 
     if (state.inTiebreak) {
       if (ev.team === 'A') state.tiebreakA += 1; else state.tiebreakB += 1;
@@ -203,6 +222,43 @@ export function replayMatch(config, events) {
     }
   }
 
+  // Quién saca el PRÓXIMO punto (para el indicador en pantalla), respetando
+  // la rotación punto a punto dentro de un tie-break.
+  const liveServer = state.inTiebreak
+    ? tiebreakServerAt(state.tiebreakA + state.tiebreakB + 1, tiebreakInitialServer)
+    : state.server;
+
+  // ---- Estadísticas del partido, calculadas a partir del registro de puntos ----
+  let pointsWonA = 0, pointsWonB = 0;
+  let servePlayedA = 0, serveWonA = 0, servePlayedB = 0, serveWonB = 0;
+  let streakTeam = null, streakCount = 0, longestStreak = { team: null, count: 0 };
+
+  for (const p of state.pointLog) {
+    if (p.team === 'A') pointsWonA += 1; else pointsWonB += 1;
+
+    if (p.server === 'A') {
+      servePlayedA += 1;
+      if (p.team === 'A') serveWonA += 1;
+    } else {
+      servePlayedB += 1;
+      if (p.team === 'B') serveWonB += 1;
+    }
+
+    if (p.team === streakTeam) streakCount += 1;
+    else { streakTeam = p.team; streakCount = 1; }
+    if (streakCount > longestStreak.count) longestStreak = { team: streakTeam, count: streakCount };
+  }
+
+  state.stats = {
+    totalPoints: state.pointLog.length,
+    pointsWonA, pointsWonB,
+    servePctA: servePlayedA ? Math.round((serveWonA / servePlayedA) * 100) : null,
+    servePctB: servePlayedB ? Math.round((serveWonB / servePlayedB) * 100) : null,
+    servePlayedA, serveWonA, servePlayedB, serveWonB,
+    longestStreak,
+    avgPointsPerGame: state.gameLog.length ? Math.round((state.pointLog.length / state.gameLog.length) * 10) / 10 : null,
+  };
+
   state.endedAt = state.matchOver && state.pointLog.length ? state.pointLog[state.pointLog.length - 1].t : null;
 
   // Etiquetas para mostrar en pantalla
@@ -213,7 +269,7 @@ export function replayMatch(config, events) {
     gamesB: state.currentSet.gamesB,
     setsA: state.setsWonA,
     setsB: state.setsWonB,
-    server: state.server,
+    server: liveServer,
     inTiebreak: state.inTiebreak,
     isSuperTiebreak: state.isSuperTiebreakNow,
   };
