@@ -388,6 +388,34 @@ input[type="text"], input[type="number"], select {
   backdrop-filter: blur(6px);
 }
 
+.undo-fab {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 6;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(21, 26, 34, 0.9);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(6px);
+  color: var(--text-dim);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 2px;
+}
+
+.undo-fab:active {
+  color: var(--danger);
+  border-color: var(--danger);
+  transform: translateX(-50%) scale(0.92);
+}
+
 .tiebreak-banner {
   position: absolute;
   top: calc(64px + var(--safe-top));

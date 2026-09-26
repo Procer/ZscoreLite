@@ -90,6 +90,21 @@ export function createMatchController(meta) {
     notify();
   }
 
+  /** Resta el último tanto anotado específicamente por ese equipo, aunque el
+   * otro equipo haya sumado puntos después. Usado por el doble click del
+   * control remoto en el botón de un equipo. */
+  function undoLastForTeam(team) {
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i].team === team) {
+        events.splice(i, 1);
+        state = replayMatch(config, events);
+        persist(false);
+        notify();
+        return;
+      }
+    }
+  }
+
   function finalizeAndSave() {
     if (!state.matchOver && events.length) {
       // Partido cortado manualmente: se guarda igual con lo jugado hasta acá.
@@ -108,5 +123,5 @@ export function createMatchController(meta) {
     return () => listeners.delete(cb);
   }
 
-  return { addPoint, undo, finalizeAndSave, getState, subscribe, teamNames, config };
+  return { addPoint, undo, undoLastForTeam, finalizeAndSave, getState, subscribe, teamNames, config };
 }

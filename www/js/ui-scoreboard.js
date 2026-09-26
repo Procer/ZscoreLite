@@ -16,6 +16,8 @@ export function initScoreboard({ onMatchFinished }) {
   let clockInterval = null;
   let matchStartTime = null;
   let unsubscribeRemote = null;
+  const DOUBLE_PRESS_WINDOW_MS = 450;
+  let lastRemotePressAt = { A: 0, B: 0 };
 
   function renderSets(container, sets, mySide, myKey) {
     container.innerHTML = '';
@@ -82,16 +84,33 @@ export function initScoreboard({ onMatchFinished }) {
     clockInterval = setInterval(tick, 1000);
     tick();
 
-    // Mapeo del control remoto: botón "foto" -> suma Pareja A, botón "video" -> suma Pareja B.
+    // Mapeo del control remoto: botón "foto" -> Pareja A, botón "video" -> Pareja B.
     // Es una convención razonable dado que no hay forma estándar de identificar
     // qué botón físico dispara cada evento; puede ajustarse una vez probado en
     // el dispositivo real.
+    // Un solo click suma un tanto. Dos clicks seguidos (menos de 450ms) del
+    // MISMO botón restan el último tanto de ESE equipo, aunque el otro equipo
+    // haya anotado después. No usamos "mantener presionado" porque estos
+    // controles suelen mandar un clic instantáneo, sin estado de "sostenido".
+    lastRemotePressAt = { A: 0, B: 0 };
     unsubscribeRemote = onRemotePress((source) => {
       if (!controller) return;
+      let side = null;
       if (source.includes('volumeup') || source.includes('nexttrack') || source === 'native:shutter' || source === 'simulated') {
-        controller.addPoint('A');
+        side = 'A';
       } else if (source.includes('volumedown') || source.includes('previoustrack')) {
-        controller.addPoint('B');
+        side = 'B';
+      }
+      if (!side) return;
+
+      const now = Date.now();
+      const isDoublePress = now - lastRemotePressAt[side] < DOUBLE_PRESS_WINDOW_MS;
+      if (isDoublePress) {
+        lastRemotePressAt[side] = 0;
+        controller.undoLastForTeam(side);
+      } else {
+        lastRemotePressAt[side] = now;
+        controller.addPoint(side);
       }
     });
   }
@@ -107,6 +126,10 @@ export function initScoreboard({ onMatchFinished }) {
     }
     if (action === 'open-menu') {
       overlayMenu.classList.add('is-active');
+      return;
+    }
+    if (action === 'undo-point' && controller) {
+      controller.undo();
       return;
     }
   });
