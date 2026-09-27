@@ -16,7 +16,7 @@ function escapeHtml(s) {
 // las respuestas ya dadas (así el asistente "guía" sin mostrar pasos que no aplican).
 const STEP_ORDER = [
   'mode', 'bestof', 'gamesperset', 'targetgames', 'noad', 'supertiebreak',
-  'player-a1', 'player-a2', 'player-b1', 'player-b2', 'server',
+  'player-a1', 'player-a2', 'player-b1', 'player-b2',
   'club', 'court', 'category', 'voice', 'summary',
 ];
 
@@ -48,7 +48,6 @@ export function initSetupWizard(onStartMatch) {
       noAd: true,
       superTiebreak: false,
       teams: { A: { p1: '', p2: '' }, B: { p1: '', p2: '' } },
-      firstServer: 'A',
       club: '',
       court: '',
       category: '',
@@ -64,7 +63,9 @@ export function initSetupWizard(onStartMatch) {
       gamesPerSet: wizard.mode === 'games' ? wizard.targetGames : wizard.gamesPerSet,
       noAd: wizard.noAd,
       superTiebreakDecider: wizard.mode === 'sets' ? wizard.superTiebreak : false,
-      firstServer: wizard.firstServer,
+      // firstServer queda sin definir: lo decide el primer tanto que se
+      // toque en el marcador (así se resuelve como en la cancha real,
+      // jugando un punto para ver quién saca).
     };
   }
 
@@ -228,12 +229,6 @@ export function initSetupWizard(onStartMatch) {
         savePlayerName(name).then(() => listPlayerNames()).then((list) => { playersCache = list; });
         goNext();
       }, exclude);
-    } else if (id === 'server') {
-      renderChoice('¿Quién saca primero?', 'Si todavía no lo decidieron (por ejemplo, van a jugar un punto para definirlo en la cancha), podés omitir este paso.', [
-        { value: 'A', title: teamPreview('A') },
-        { value: 'B', title: teamPreview('B') },
-        { value: 'skip', title: 'Omitir', sub: 'Arranca sacando la Pareja A' },
-      ], wizard.firstServer, (v) => { wizard.firstServer = v === 'skip' ? 'A' : v; goNext(); });
     } else if (id === 'club') {
       renderPick('¿En qué club se juega?', null, clubsCache, (name) => {
         wizard.club = name;
@@ -276,7 +271,7 @@ export function initSetupWizard(onStartMatch) {
         <div class="summary-card-row"><strong>${escapeHtml(teamPreview('A'))}</strong> vs <strong>${escapeHtml(teamPreview('B'))}</strong></div>
         <div class="summary-card-row muted">${escapeHtml(describeConfig(cfg))}</div>
         <div class="summary-card-row muted">${[wizard.club, wizard.court, wizard.category].filter(Boolean).map(escapeHtml).join(' · ')}</div>
-        <div class="summary-card-row muted">Saca primero: ${escapeHtml(teamPreview(wizard.firstServer))}</div>
+        <div class="summary-card-row muted">El saque inicial lo define el primer tanto que toques en el marcador.</div>
       </div>
       <div class="toggle-row">
         <div>

@@ -19,17 +19,6 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   const DOUBLE_PRESS_WINDOW_MS = 450;
   let lastRemotePressAt = { A: 0, B: 0 };
 
-  function renderSets(container, sets, mySide, myKey) {
-    container.innerHTML = '';
-    const total = Math.max(sets.length, 1);
-    for (let i = 0; i < sets.length; i++) {
-      const dot = document.createElement('div');
-      const won = mySide === 'A' ? sets[i].gamesA > sets[i].gamesB : sets[i].gamesB > sets[i].gamesA;
-      dot.className = 'set-pip' + (won ? ' is-won' : '');
-      container.appendChild(dot);
-    }
-  }
-
   function render(state, teamNames) {
     document.getElementById('name-a').textContent = teamNames.A;
     document.getElementById('name-b').textContent = teamNames.B;
@@ -39,8 +28,10 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     document.getElementById('games-b').textContent = state.display.gamesB;
     document.getElementById('serve-dot-a').classList.toggle('is-serving', state.display.server === 'A');
     document.getElementById('serve-dot-b').classList.toggle('is-serving', state.display.server === 'B');
-    renderSets(document.getElementById('sets-a'), state.completedSets, 'A');
-    renderSets(document.getElementById('sets-b'), state.completedSets, 'B');
+    const setsWonA = state.completedSets.filter((s) => s.gamesA > s.gamesB).length;
+    const setsWonB = state.completedSets.filter((s) => s.gamesB > s.gamesA).length;
+    document.getElementById('sets-a').textContent = setsWonA;
+    document.getElementById('sets-b').textContent = setsWonB;
 
     const banner = document.getElementById('tiebreak-banner');
     banner.style.display = state.display.inTiebreak ? '' : 'none';

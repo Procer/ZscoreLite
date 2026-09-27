@@ -1,0 +1,9 @@
+{
+  "appId": "ar.zscore.lite",
+  "appName": "Z-Score Lite",
+  "webDir": "www",
+  "server": {
+    "url": "https://zscorelite.anka.ar",
+    "cleartext": false
+  }
+}

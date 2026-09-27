@@ -1,6 +1,7 @@
 import { listMatches } from './db.js';
 import { describeConfig, replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
+import { buildShareText, shareMatch } from './share.js';
 
 function formatDate(ts) {
   if (!ts) return '';
@@ -30,6 +31,7 @@ export function initHistory() {
   const overlay = document.getElementById('overlay-match-detail');
   const content = document.getElementById('match-detail-content');
   let cache = [];
+  let currentDetailMatch = null;
 
   async function render() {
     cache = await listMatches();
@@ -91,9 +93,11 @@ export function initHistory() {
       <div class="section-title">Detalles</div>
       <div class="stat-tile-card">${infoHtml}</div>
       ${statsHtml}
+      <button class="btn btn-primary btn-block" data-action="share-match">📤 Compartir resultado</button>
       <button class="btn btn-ghost btn-block" data-action="close-match-detail">Cerrar</button>
     `;
     overlay.classList.add('is-active');
+    currentDetailMatch = match;
   }
 
   list.addEventListener('click', (e) => {
@@ -102,9 +106,16 @@ export function initHistory() {
     openDetail(cache[Number(idx)]);
   });
 
-  overlay.addEventListener('click', (e) => {
+  overlay.addEventListener('click', async (e) => {
     if (e.target.closest('[data-action="close-match-detail"]') || e.target === overlay) {
       overlay.classList.remove('is-active');
+      return;
+    }
+    if (e.target.closest('[data-action="share-match"]') && currentDetailMatch) {
+      e.stopPropagation(); // evita que el listener global de app.js también dispare el compartir
+      const result = await shareMatch(buildShareText(currentDetailMatch));
+      if (result === 'copied') alert('Copiado. Pegalo en WhatsApp o donde quieras mandarlo.');
+      if (result === 'failed') alert('No se pudo compartir ni copiar en este navegador.');
     }
   });
 

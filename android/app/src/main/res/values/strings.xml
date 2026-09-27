@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Z-Score Lite</string>
+    <string name="title_activity_main">Z-Score Lite</string>
+    <string name="package_name">ar.zscore.lite</string>
+    <string name="custom_url_scheme">ar.zscore.lite</string>
+</resources>

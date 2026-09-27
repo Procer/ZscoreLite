@@ -448,15 +448,13 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 }
 
 .team-panel {
-  padding: 12px;
-  padding-top: calc(64px + var(--safe-top));
+  padding: 8px 10px 10px;
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 1.6vh;
+  justify-content: flex-start;
   position: relative;
   cursor: pointer;
   user-select: none;
@@ -467,34 +465,59 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 .team-panel--a { background: radial-gradient(circle at 50% 40%, rgba(140,226,58,0.07), transparent 60%); }
 .team-panel--b { background: radial-gradient(circle at 50% 40%, rgba(63,169,245,0.07), transparent 60%); border-left: 1px solid var(--border); }
 
+/* Bloque compacto arriba: nombre + games/sets. Todo lo demás de la pantalla
+   queda libre para el número del tanto, que es lo que se tiene que ver de lejos. */
+.team-top {
+  padding-top: calc(6px + var(--safe-top));
+  text-align: center;
+  max-width: 78%;
+}
+
 .team-name {
-  font-size: clamp(15px, 2.4vw, 24px);
+  font-size: clamp(13px, 2vw, 19px);
   font-weight: 700;
   color: var(--text-dim);
-  max-width: 88%;
-  text-align: center;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.serve-ball {
-  display: block;
-  font-size: clamp(28px, 6vw, 52px);
-  line-height: 1;
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  filter: drop-shadow(0 0 10px rgba(140, 226, 58, 0.7));
+.team-meta {
+  font-size: clamp(11px, 1.5vw, 14px);
+  color: var(--text-dim);
+  opacity: 0.75;
+  margin-top: 2px;
 }
+
+/* Pelota de saque: un círculo sólido tipo pelota de pádel, en la esquina
+   superior de cada lado (no compite por espacio con el nombre). */
+.serve-ball {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  width: clamp(22px, 4vh, 34px);
+  height: clamp(22px, 4vh, 34px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #f9ffb0, #d7e600 55%, #9aa800 100%);
+  box-shadow: 0 0 14px rgba(215, 230, 0, 0.85), inset -3px -3px 6px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.serve-ball--a { left: calc(12px + var(--safe-left)); }
+.serve-ball--b { right: calc(12px + var(--safe-right)); }
 
 .serve-ball.is-serving { opacity: 1; transform: scale(1); }
 
 .team-point {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   /* vh en vez de vw: el marcador siempre va horizontal, así que el alto de
      pantalla es el límite real (en landscape el ancho sobra). */
-  font-size: clamp(100px, 42vh, 320px);
+  font-size: clamp(140px, 58vh, 440px);
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -503,36 +526,6 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 
 .team-panel--a .team-point { color: var(--accent); }
 .team-panel--b .team-point { color: var(--accent-blue); }
-
-.team-games {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.game-pip {
-  font-size: clamp(14px, 2vw, 20px);
-  color: var(--text-dim);
-  background: var(--bg-elevated);
-  border-radius: 8px;
-  padding: 4px 10px;
-  min-width: 30px;
-  text-align: center;
-}
-
-.sets-row {
-  display: flex;
-  gap: 6px;
-}
-
-.set-pip {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--bg-elevated-2);
-}
-
-.set-pip.is-won { background: var(--text); }
 
 .scoreboard-topbar {
   position: absolute;

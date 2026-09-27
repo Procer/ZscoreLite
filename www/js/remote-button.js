@@ -71,9 +71,10 @@ export function initRemoteButton() {
   window.addEventListener('touchstart', resume, { once: true, passive: true });
   window.addEventListener('click', resume, { once: true });
 
-  // Escuchar también el evento que despachará el futuro wrapper nativo
-  // (Capacitor) cuando intercepte el botón físico a nivel de sistema.
-  window.addEventListener('remote-shutter', () => emit('native:shutter'));
+  // Evento que despacha el wrapper nativo (Capacitor/Android) cuando
+  // intercepta la tecla de volumen a nivel de sistema: acá sí es 100%
+  // confiable, a diferencia de los intentos de arriba en el navegador.
+  window.addEventListener('remote-shutter', (e) => emit('native:' + (e.detail || 'shutter')));
 }
 
 /** Suscribirse a pulsaciones detectadas. cb recibe un string con el origen. */

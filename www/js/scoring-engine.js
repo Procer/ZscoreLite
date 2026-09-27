@@ -17,7 +17,10 @@ export function defaultConfig(overrides = {}) {
     superTiebreakPoints: 10,
     noAd: false, // punto de oro (muerte súbita en 40-40)
     targetGames: 4, // usado solo en mode:'games' (informativo, igual a gamesPerSet)
-    firstServer: 'A', // quién saca el primer game del partido
+    // Quién saca el primer game del partido. Si queda en null (no se eligió
+    // en la configuración), lo decide el primer tanto jugado: el equipo al
+    // que se le toca el primer punto queda como el que estaba sacando.
+    firstServer: null,
     ...overrides,
   };
 }
@@ -75,6 +78,9 @@ function pointLabel(mine, other, noAd) {
  */
 export function replayMatch(config, events) {
   const cfg = defaultConfig(config);
+  // Si no se eligió sacador en la configuración, lo define el equipo del
+  // primer evento (el primer toque de la pantalla/control decide el saque).
+  const inferredFirstServer = cfg.firstServer || (events.length ? events[0].team : null);
 
   const state = {
     matchOver: false,
@@ -89,8 +95,8 @@ export function replayMatch(config, events) {
     tiebreakA: 0,
     tiebreakB: 0,
     isSuperTiebreakNow: false,
-    server: cfg.firstServer, // equipo que saca el game/tanda actual
-    firstServerOfSet: cfg.firstServer,
+    server: inferredFirstServer, // equipo que saca el game/tanda actual (null si todavía no se jugó nada)
+    firstServerOfSet: inferredFirstServer,
     breaksA: 0, // quiebres de saque ganados por A
     breaksB: 0,
     gameLog: [], // registro de cada game/tie-break terminado

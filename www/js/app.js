@@ -5,9 +5,11 @@ import { initHistory } from './ui-history.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
+import { buildShareText, shareMatch } from './share.js';
 
 const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history'];
 const PIN_KEY = 'zscoreLitePin';
+let lastSummaryRecord = null;
 
 function showView(name) {
   views.forEach((v) => {
@@ -70,6 +72,8 @@ function renderSummary(record) {
 
   const replayed = replayMatch(record.config, record.events || []);
   document.getElementById('summary-stats').innerHTML = renderStatsCard(record.teamNames, replayed.stats);
+
+  lastSummaryRecord = record;
 }
 
 async function refreshLastMatchButton() {
@@ -85,6 +89,13 @@ document.addEventListener('click', (e) => {
   if (action === 'go-home') { showView('home'); return; }
   if (action === 'go-history') { history.render(); showView('history'); return; }
   if (action === 'go-setup') { goToSetup(); return; }
+  if (action === 'share-match' && lastSummaryRecord) {
+    shareMatch(buildShareText(lastSummaryRecord)).then((result) => {
+      if (result === 'copied') alert('Copiado. Pegalo en WhatsApp o donde quieras mandarlo.');
+      if (result === 'failed') alert('No se pudo compartir ni copiar en este navegador.');
+    });
+    return;
+  }
   if (action === 'go-last-match') { openLastMatchDetail(); return; }
 });
 
