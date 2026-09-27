@@ -448,13 +448,13 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 }
 
 .team-panel {
-  padding: 8px 10px 10px;
+  padding: 0 6px;
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   position: relative;
   cursor: pointer;
   user-select: none;
@@ -475,34 +475,39 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   box-shadow: -1px 0 0 rgba(255, 255, 255, 0.03);
 }
 
-/* Bloque compacto arriba: nombre + games/sets. Todo lo demás de la pantalla
-   queda libre para el número del tanto, que es lo que se tiene que ver de lejos. */
+/* Nombre + games/sets: van SUPERPUESTOS arriba (position:absolute), no
+   ocupan espacio en el flujo, así el número de abajo puede usar casi toda
+   la altura de la pantalla en vez de "lo que sobra". */
 .team-top {
-  padding-top: calc(6px + var(--safe-top));
+  position: absolute;
+  top: calc(4px + var(--safe-top));
+  left: 8px;
+  right: 8px;
   text-align: center;
-  max-width: 78%;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .team-name {
-  font-size: clamp(13px, 2vw, 19px);
+  font-size: clamp(12px, 1.8vw, 17px);
   font-weight: 700;
   letter-spacing: 0.2px;
   color: var(--text);
-  line-height: 1.2;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .team-meta {
-  font-size: clamp(10px, 1.4vw, 13px);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--text-dim);
-  opacity: 0.65;
-  margin-top: 3px;
+  font-size: clamp(13px, 2.4vw, 20px);
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  margin-top: 2px;
 }
+
+.team-panel--a .team-meta { color: var(--accent); }
+.team-panel--b .team-meta { color: var(--accent-blue); }
 
 /* Pelota de saque: un círculo sólido tipo pelota de pádel, en la esquina
    superior de cada lado (no compite por espacio con el nombre). */
@@ -535,12 +540,14 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 
 .team-point {
   flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-top: clamp(30px, 8vh, 46px); /* deja lugar al nombre/games-sets superpuestos arriba */
   /* vh en vez de vw: el marcador siempre va horizontal, así que el alto de
      pantalla es el límite real (en landscape el ancho sobra). */
-  font-size: clamp(170px, 76vh, 580px);
+  font-size: clamp(200px, 92vh, 700px);
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;

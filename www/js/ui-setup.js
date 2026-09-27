@@ -1,9 +1,5 @@
 import { describeConfig } from './scoring-engine.js';
-import {
-  listPlayerNames, savePlayerName,
-  listClubNames, saveClubName,
-  listCourtNames, saveCourtName,
-} from './db.js';
+import { listPlayerNames, savePlayerName } from './db.js';
 import { initRemoteButton, onRemotePress } from './remote-button.js';
 
 initRemoteButton();
@@ -17,7 +13,7 @@ function escapeHtml(s) {
 const STEP_ORDER = [
   'mode', 'bestof', 'gamesperset', 'targetgames', 'noad', 'supertiebreak',
   'player-a1', 'player-a2', 'player-b1', 'player-b2',
-  'club', 'court', 'category', 'voice', 'summary',
+  'category', 'voice', 'summary',
 ];
 
 function isRelevant(id, w) {
@@ -37,7 +33,7 @@ export function initSetupWizard(onStartMatch) {
   const visitedStack = [];
   let currentStepId = null;
 
-  let wizard, playersCache, clubsCache, courtsCache;
+  let wizard, playersCache;
 
   function freshWizard() {
     return {
@@ -48,8 +44,6 @@ export function initSetupWizard(onStartMatch) {
       noAd: true,
       superTiebreak: false,
       teams: { A: { p1: '', p2: '' }, B: { p1: '', p2: '' } },
-      club: '',
-      court: '',
       category: '',
       voiceLevel: 'full',
     };
@@ -229,18 +223,6 @@ export function initSetupWizard(onStartMatch) {
         savePlayerName(name).then(() => listPlayerNames()).then((list) => { playersCache = list; });
         goNext();
       }, exclude);
-    } else if (id === 'club') {
-      renderPick('¿En qué club se juega?', null, clubsCache, (name) => {
-        wizard.club = name;
-        saveClubName(name).then(() => listClubNames()).then((list) => { clubsCache = list; });
-        goNext();
-      });
-    } else if (id === 'court') {
-      renderPick('¿En qué cancha?', null, courtsCache, (name) => {
-        wizard.court = name;
-        saveCourtName(name).then(() => listCourtNames()).then((list) => { courtsCache = list; });
-        goNext();
-      });
     } else if (id === 'category') {
       renderText('¿Categoría?', 'Opcional', wizard.category, { optional: true }, (val) => {
         wizard.category = val;
@@ -270,7 +252,7 @@ export function initSetupWizard(onStartMatch) {
       <div class="summary-card">
         <div class="summary-card-row"><strong>${escapeHtml(teamPreview('A'))}</strong> vs <strong>${escapeHtml(teamPreview('B'))}</strong></div>
         <div class="summary-card-row muted">${escapeHtml(describeConfig(cfg))}</div>
-        <div class="summary-card-row muted">${[wizard.club, wizard.court, wizard.category].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+        ${wizard.category ? `<div class="summary-card-row muted">${escapeHtml(wizard.category)}</div>` : ''}
         <div class="summary-card-row muted">El saque inicial lo define el primer tanto que toques en el marcador.</div>
       </div>
       <div class="toggle-row">
@@ -295,7 +277,7 @@ export function initSetupWizard(onStartMatch) {
         sport: 'padel',
         config: buildConfig(),
         teams: wizard.teams,
-        club: wizard.club, court: wizard.court, category: wizard.category,
+        category: wizard.category,
         voiceLevel: wizard.voiceLevel,
       };
       onStartMatch(meta);
@@ -318,7 +300,7 @@ export function initSetupWizard(onStartMatch) {
   async function resetWizard() {
     wizard = freshWizard();
     visitedStack.length = 0;
-    [playersCache, clubsCache, courtsCache] = await Promise.all([listPlayerNames(), listClubNames(), listCourtNames()]);
+    playersCache = await listPlayerNames();
     currentStepId = null;
     goTo('mode', { recordHistory: false });
   }

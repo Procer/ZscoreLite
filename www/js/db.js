@@ -115,10 +115,6 @@ async function listNames(storeName) {
 
 export const savePlayerName = (name) => upsertName('players', name);
 export const listPlayerNames = () => listNames('players');
-export const saveClubName = (name) => upsertName('clubs', name);
-export const listClubNames = () => listNames('clubs');
-export const saveCourtName = (name) => upsertName('courts', name);
-export const listCourtNames = () => listNames('courts');
 
 export async function deletePlayerName(name) {
   return tx('players', 'readwrite', (store) => store.delete(name));
