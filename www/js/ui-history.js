@@ -32,6 +32,7 @@ export function initHistory() {
   const content = document.getElementById('match-detail-content');
   let cache = [];
   let currentDetailMatch = null;
+  let currentDetailStats = null;
 
   async function render() {
     cache = await listMatches();
@@ -98,6 +99,7 @@ export function initHistory() {
     `;
     overlay.classList.add('is-active');
     currentDetailMatch = match;
+    currentDetailStats = replayed.stats;
   }
 
   list.addEventListener('click', (e) => {
@@ -113,7 +115,7 @@ export function initHistory() {
     }
     if (e.target.closest('[data-action="share-match"]') && currentDetailMatch) {
       e.stopPropagation(); // evita que el listener global de app.js también dispare el compartir
-      const result = await shareMatch(buildShareText(currentDetailMatch));
+      const result = await shareMatch(buildShareText(currentDetailMatch, currentDetailStats));
       if (result === 'copied') alert('Copiado. Pegalo en WhatsApp o donde quieras mandarlo.');
       if (result === 'failed') alert('No se pudo compartir ni copiar en este navegador.');
     }

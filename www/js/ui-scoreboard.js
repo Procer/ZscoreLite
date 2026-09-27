@@ -16,7 +16,7 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   let clockInterval = null;
   let matchStartTime = null;
   let unsubscribeRemote = null;
-  const DOUBLE_PRESS_WINDOW_MS = 450;
+  const DOUBLE_PRESS_WINDOW_MS = 700;
   let lastRemotePressAt = { A: 0, B: 0 };
 
   function render(state, teamNames) {

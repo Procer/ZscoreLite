@@ -10,16 +10,26 @@ import { buildShareText, shareMatch } from './share.js';
 const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history'];
 const PIN_KEY = 'zscoreLitePin';
 let lastSummaryRecord = null;
+let lastSummaryStats = null;
 
 function showView(name) {
   views.forEach((v) => {
     document.getElementById(`view-${v}`).classList.toggle('is-active', v === name);
   });
   // El marcador va horizontal (landscape); el resto de la app, vertical.
-  // No todos los navegadores lo soportan (ej: iOS Safari no lo permite nunca),
-  // por eso siempre va envuelto en un try/catch silencioso.
+  const lock = name === 'scoreboard' ? 'landscape' : 'portrait';
+
+  // Dentro de la app nativa (Capacitor), el plugin nativo es el que
+  // realmente funciona: la API web de orientación no es confiable ahí.
+  const nativeScreenOrientation = window.Capacitor?.Plugins?.ScreenOrientation;
+  if (nativeScreenOrientation) {
+    nativeScreenOrientation.lock({ orientation: lock }).catch(() => {});
+    return;
+  }
+
+  // Como PWA/navegador normal: la API web (no todos la soportan, ej. iOS
+  // Safari nunca la permite, por eso el try/catch silencioso).
   try {
-    const lock = name === 'scoreboard' ? 'landscape' : 'portrait';
     screen.orientation?.lock?.(lock)?.catch?.(() => {});
   } catch (e) { /* no soportado en este navegador, se ignora */ }
 }
@@ -74,6 +84,7 @@ function renderSummary(record) {
   document.getElementById('summary-stats').innerHTML = renderStatsCard(record.teamNames, replayed.stats);
 
   lastSummaryRecord = record;
+  lastSummaryStats = replayed.stats;
 }
 
 async function refreshLastMatchButton() {
@@ -90,7 +101,7 @@ document.addEventListener('click', (e) => {
   if (action === 'go-history') { history.render(); showView('history'); return; }
   if (action === 'go-setup') { goToSetup(); return; }
   if (action === 'share-match' && lastSummaryRecord) {
-    shareMatch(buildShareText(lastSummaryRecord)).then((result) => {
+    shareMatch(buildShareText(lastSummaryRecord, lastSummaryStats)).then((result) => {
       if (result === 'copied') alert('Copiado. Pegalo en WhatsApp o donde quieras mandarlo.');
       if (result === 'failed') alert('No se pudo compartir ni copiar en este navegador.');
     });

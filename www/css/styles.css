@@ -540,7 +540,7 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   justify-content: center;
   /* vh en vez de vw: el marcador siempre va horizontal, así que el alto de
      pantalla es el límite real (en landscape el ancho sobra). */
-  font-size: clamp(140px, 58vh, 440px);
+  font-size: clamp(170px, 76vh, 580px);
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
