@@ -462,8 +462,18 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 
 .team-panel:active { filter: brightness(1.08); }
 
-.team-panel--a { background: radial-gradient(circle at 50% 40%, rgba(140,226,58,0.07), transparent 60%); }
-.team-panel--b { background: radial-gradient(circle at 50% 40%, rgba(63,169,245,0.07), transparent 60%); border-left: 1px solid var(--border); }
+.team-panel--a {
+  background:
+    radial-gradient(circle at 50% 55%, rgba(140, 226, 58, 0.12), transparent 55%),
+    linear-gradient(180deg, rgba(140, 226, 58, 0.05), transparent 30%);
+}
+.team-panel--b {
+  background:
+    radial-gradient(circle at 50% 55%, rgba(63, 169, 245, 0.12), transparent 55%),
+    linear-gradient(180deg, rgba(63, 169, 245, 0.05), transparent 30%);
+  border-left: 1px solid var(--border);
+  box-shadow: -1px 0 0 rgba(255, 255, 255, 0.03);
+}
 
 /* Bloque compacto arriba: nombre + games/sets. Todo lo demás de la pantalla
    queda libre para el número del tanto, que es lo que se tiene que ver de lejos. */
@@ -476,7 +486,8 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 .team-name {
   font-size: clamp(13px, 2vw, 19px);
   font-weight: 700;
-  color: var(--text-dim);
+  letter-spacing: 0.2px;
+  color: var(--text);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -484,10 +495,13 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 }
 
 .team-meta {
-  font-size: clamp(11px, 1.5vw, 14px);
+  font-size: clamp(10px, 1.4vw, 13px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
   color: var(--text-dim);
-  opacity: 0.75;
-  margin-top: 2px;
+  opacity: 0.65;
+  margin-top: 3px;
 }
 
 /* Pelota de saque: un círculo sólido tipo pelota de pádel, en la esquina
@@ -508,7 +522,16 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 .serve-ball--a { left: calc(12px + var(--safe-left)); }
 .serve-ball--b { right: calc(12px + var(--safe-right)); }
 
-.serve-ball.is-serving { opacity: 1; transform: scale(1); }
+.serve-ball.is-serving {
+  opacity: 1;
+  transform: scale(1);
+  animation: serve-ball-glow 2.2s ease-in-out infinite;
+}
+
+@keyframes serve-ball-glow {
+  0%, 100% { box-shadow: 0 0 14px rgba(215, 230, 0, 0.85), inset -3px -3px 6px rgba(0, 0, 0, 0.25); }
+  50% { box-shadow: 0 0 22px rgba(215, 230, 0, 1), inset -3px -3px 6px rgba(0, 0, 0, 0.25); }
+}
 
 .team-point {
   flex: 1;
@@ -524,8 +547,8 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   color: var(--text);
 }
 
-.team-panel--a .team-point { color: var(--accent); }
-.team-panel--b .team-point { color: var(--accent-blue); }
+.team-panel--a .team-point { color: var(--accent); text-shadow: 0 0 50px rgba(140, 226, 58, 0.35), 0 0 110px rgba(140, 226, 58, 0.15); }
+.team-panel--b .team-point { color: var(--accent-blue); text-shadow: 0 0 50px rgba(63, 169, 245, 0.35), 0 0 110px rgba(63, 169, 245, 0.15); }
 
 .scoreboard-topbar {
   position: absolute;
