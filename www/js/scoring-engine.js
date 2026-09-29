@@ -61,7 +61,9 @@ function tiebreakServerAt(pointNumber, initialServer) {
 
 function pointLabel(mine, other, noAd) {
   if (mine < 3 && other < 3) return POINT_LABELS[mine];
-  if (noAd && mine >= 3 && other >= 3) return mine === other ? 'Punto de oro' : POINT_LABELS[3];
+  // En punto de oro (40-40) se muestra 40 en ambos lados; display.goldenPoint
+  // avisa que es el punto decisivo (lo usa la voz).
+  if (noAd && mine >= 3 && other >= 3) return POINT_LABELS[3];
   if (mine >= 3 && other >= 3) {
     const diff = mine - other;
     if (diff === 0) return 'Iguales';
@@ -278,6 +280,7 @@ export function replayMatch(config, events) {
     server: liveServer,
     inTiebreak: state.inTiebreak,
     isSuperTiebreak: state.isSuperTiebreakNow,
+    goldenPoint: !state.inTiebreak && cfg.noAd && state.gamePointsA >= 3 && state.gamePointsA === state.gamePointsB,
   };
 
   return state;

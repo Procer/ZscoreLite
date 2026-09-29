@@ -67,14 +67,14 @@
       <button class="icon-btn" data-action="open-menu">⋮</button>
     </div>
     <div class="tiebreak-banner" id="tiebreak-banner" style="display:none;">TIE-BREAK</div>
-    <div class="tap-hint" id="tap-hint" style="display:none;"></div>
-    <div class="serve-hint" id="serve-hint" style="display:none;">¿Quién saca? Control: 1 toque = izquierda · 2 toques = derecha</div>
+    <div class="tap-hint" id="tap-hint" style="display:none;"><span id="tap-text"></span><i class="tap-bar" id="tap-bar"></i></div>
+    <div class="serve-hint" id="serve-hint" style="display:none;"><strong>¿QUIÉN SACA?</strong><span>CONTROL: 1 TOQUE = IZQUIERDA<br>2 TOQUES = DERECHA</span></div>
     <div class="scoreboard">
       <div class="team-panel team-panel--a" data-action="point" data-team="A">
         <span class="serve-ball serve-ball--a" id="serve-dot-a"></span>
         <div class="team-top">
           <div class="team-name" id="name-a">Pareja A</div>
-          <div class="team-meta"><div><span class="lbl">GAMES</span> <span id="games-a">0</span></div><div><span class="lbl">SETS</span> <span id="sets-a">0</span></div></div>
+          <div class="team-meta"><span class="lbl">GAMES</span> <span id="games-a">0</span> <span class="sep">&middot;</span> <span class="lbl">SETS</span> <span id="sets-a">0</span></div>
         </div>
         <div class="team-point" id="point-a">0</div>
         <button class="team-subtract-btn team-subtract-btn--a" data-action="undo-team" data-team="A" aria-label="Restar tanto a Pareja A">−</button>
@@ -83,12 +83,14 @@
         <span class="serve-ball serve-ball--b" id="serve-dot-b"></span>
         <div class="team-top">
           <div class="team-name" id="name-b">Pareja B</div>
-          <div class="team-meta"><div><span class="lbl">GAMES</span> <span id="games-b">0</span></div><div><span class="lbl">SETS</span> <span id="sets-b">0</span></div></div>
+          <div class="team-meta"><span class="lbl">GAMES</span> <span id="games-b">0</span> <span class="sep">&middot;</span> <span class="lbl">SETS</span> <span id="sets-b">0</span></div>
         </div>
         <div class="team-point" id="point-b">0</div>
         <button class="team-subtract-btn team-subtract-btn--b" data-action="undo-team" data-team="B" aria-label="Restar tanto a Pareja B">−</button>
       </div>
     </div>
+    <div class="win-banner" id="win-banner"><div class="wb-title" id="wb-title"></div><div class="wb-sub" id="wb-sub"></div></div>
+    <canvas class="fx-canvas" id="fx-canvas"></canvas>
   </section>
 
   <!-- MENU overlay (durante el partido) -->

@@ -52,7 +52,7 @@ export function createAnnouncer(detailLevel = 'full') {
       speak(`${display.pointA} - ${display.pointB}`);
       return;
     }
-    if (display.pointA === 'Punto de oro' || display.pointB === 'Punto de oro') {
+    if (display.goldenPoint) {
       speak('Punto de oro');
       return;
     }

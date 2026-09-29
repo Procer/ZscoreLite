@@ -490,8 +490,9 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   right: calc(var(--serve-ball-size) + 16px);
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 14px;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 22px; /* la ajusta ui-scoreboard.js para que el nombre entre entero */
   z-index: 2;
   pointer-events: none;
 }
@@ -502,34 +503,29 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 .team-panel--b .team-top { left: var(--center-clear); }
 
 .team-name {
+  flex: 0 1 auto;
   min-width: 0;
-  font-size: clamp(14px, 2.2vw, 22px);
+  font-size: 1em;
   font-weight: 800;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--text);
   line-height: 1.15;
-  text-align: right;
-}
-
-.team-name span {
-  display: block;
-  overflow: hidden;
   white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.team-meta .lbl { font-size: 0.62em; opacity: 0.85; letter-spacing: 0.8px; }
+.team-meta .lbl { font-size: 0.78em; opacity: 0.85; letter-spacing: 0.8px; }
 .team-meta .sep { opacity: 0.5; }
 
 .team-meta {
   flex: none;
-  font-size: clamp(14px, 2.2vw, 20px);
+  font-size: 0.9em;
   font-weight: 800;
   letter-spacing: 0.6px;
   line-height: 1.15;
   white-space: nowrap;
-  text-align: left;
 }
 
 .team-panel--a .team-meta { color: var(--accent); }
@@ -570,7 +566,7 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: clamp(44px, 12vh, 60px); /* deja lugar al nombre/games-sets superpuestos arriba */
+  padding-top: clamp(34px, 9vh, 48px); /* deja lugar al nombre/games-sets superpuestos arriba */
   /* vh en vez de vw: el marcador siempre va horizontal, así que el alto de
      pantalla es el límite real (en landscape el ancho sobra). */
   font-size: clamp(200px, 92vh, 700px);
@@ -678,41 +674,126 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   z-index: 5;
 }
 
+/* ---------- Celebraciones: GANO + chispas ---------- */
+.fx-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.win-banner {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  background: rgba(8, 10, 14, 0.94);
+  z-index: 9;
+  pointer-events: none;
+  text-shadow: 0 0 40px currentColor;
+}
+
+.win-banner.is-active { display: flex; animation: win-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.win-banner--game.win-banner--a { left: 0; right: 50%; }
+.win-banner--game.win-banner--b { left: 50%; right: 0; }
+.win-banner--set, .win-banner--match { left: 0; right: 0; }
+.win-banner--match { pointer-events: auto; cursor: pointer; background: rgba(8, 10, 14, 0.82); }
+
+.wb-title {
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 1px;
+  font-size: min(30vh, 13vw);
+}
+
+.win-banner--set .wb-title { font-size: min(24vh, 9.5vw); animation: win-pulse 0.7s ease-in-out infinite alternate; }
+.win-banner--match .wb-title { font-size: min(21vh, 8.5vw); animation: win-pulse 0.5s ease-in-out infinite alternate; }
+
+.wb-sub {
+  font-weight: 800;
+  font-size: min(8vh, 4vw);
+  letter-spacing: 1px;
+  color: #fff;
+  padding: 0 16px;
+}
+
+@keyframes win-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes win-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.07); }
+}
+
 /* Indicador de toques del control: muestra cuantos se contaron antes de aplicar */
 .tap-hint {
   position: absolute;
-  bottom: calc(80px + var(--safe-bottom));
   left: 50%;
+  bottom: calc(24px + var(--safe-bottom));
   transform: translateX(-50%);
-  background: var(--accent);
+  min-width: 280px;
+  padding: 12px 26px 16px;
+  border-radius: 22px;
+  background: #ffffff;
   color: #0b0e13;
-  border-radius: 20px;
-  padding: 10px 22px;
-  font-size: clamp(16px, 2.8vw, 24px);
-  font-weight: 800;
+  text-align: center;
+  font-size: clamp(18px, 3vw, 28px);
+  font-weight: 900;
   letter-spacing: 0.5px;
   white-space: nowrap;
-  z-index: 7;
+  overflow: hidden;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  z-index: 9;
   pointer-events: none;
 }
+
+.tap-hint[data-side="a"] { background: var(--accent); }
+.tap-hint[data-side="b"] { background: var(--accent-b); color: #fff; }
+
+.tap-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  transform-origin: left center;
+}
+
+.tap-hint[data-side="b"] .tap-bar { background: rgba(255, 255, 255, 0.8); }
 
 /* Aviso antes del primer tanto: el primer toque del control elige quién saca */
 .serve-hint {
   position: absolute;
-  bottom: calc(16px + var(--safe-bottom));
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  background: rgba(21, 26, 34, 0.9);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 10px 20px;
-  font-size: clamp(14px, 2.4vw, 20px);
-  font-weight: 700;
-  color: var(--text);
-  white-space: nowrap;
-  z-index: 5;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 86vw;
+  padding: 20px 34px;
+  border-radius: 26px;
+  background: #ffffff;
+  color: #e0152b;
+  text-align: center;
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.55);
+  z-index: 8;
   pointer-events: none;
 }
+
+.serve-hint strong { font-size: clamp(26px, 5vw, 46px); font-weight: 900; letter-spacing: 0.5px; }
+.serve-hint span { font-size: clamp(13px, 2.4vw, 22px); font-weight: 800; letter-spacing: 0.4px; }
 
 /* ---------- Overlay / modal ---------- */
 
