@@ -19,15 +19,33 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   // Los dos botones del control mandan la misma tecla y el usuario aprieta a
   // ~0.6-1s entre toques; con 600ms un doble toque normal se leía como dos
   // toques sueltos (y a 40-30 el segundo daba el game al equipo equivocado).
-  const REMOTE_TAP_WINDOW_MS = 900;
+  const REMOTE_TAP_WINDOW_MS = 1200;
   let remoteTapCount = 0;
   let remoteTapTimer = null;
 
+  // Los textos (PUNTO DE ORO, VENTAJA, IGUALES) van mas chicos que los numeros
+  // para que entren enteros en su mitad de pantalla.
+  function setPointText(id, text) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.classList.toggle('is-long', String(text).length > 2);
+  }
+
+  // Cada jugador de la pareja en su propia linea ("Juan / Carlos" -> 2 lineas).
+  function setNameText(id, name) {
+    const lines = String(name).split(' / ').map((part) => {
+      const s = document.createElement('span');
+      s.textContent = part;
+      return s;
+    });
+    document.getElementById(id).replaceChildren(...lines);
+  }
+
   function render(state, teamNames) {
-    document.getElementById('name-a').textContent = teamNames.A;
-    document.getElementById('name-b').textContent = teamNames.B;
-    document.getElementById('point-a').textContent = state.display.pointA;
-    document.getElementById('point-b').textContent = state.display.pointB;
+    setNameText('name-a', teamNames.A);
+    setNameText('name-b', teamNames.B);
+    setPointText('point-a', state.display.pointA);
+    setPointText('point-b', state.display.pointB);
     document.getElementById('games-a').textContent = state.display.gamesA;
     document.getElementById('games-b').textContent = state.display.gamesB;
     document.getElementById('serve-dot-a').classList.toggle('is-serving', state.display.server === 'A');
@@ -63,6 +81,22 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     onPause();
   }
 
+  // Muestra cuantos toques del control se contaron y que va a pasar, para que
+  // se vea si el doble toque fue leido como doble antes de que se aplique.
+  function showTapHint(taps, choosingServer) {
+    const el = document.getElementById('tap-hint');
+    const side = taps === 1 ? 'IZQUIERDA' : taps === 2 ? 'DERECHA' : null;
+    let text;
+    if (choosingServer) text = side ? 'SACA ' + side : '';
+    else text = side ? 'TANTO ' + side : taps >= 3 ? 'DESHACER ULTIMO TANTO' : '';
+    el.textContent = text ? taps + ' · ' + text : '';
+    el.style.display = text ? '' : 'none';
+  }
+
+  function hideTapHint() {
+    document.getElementById('tap-hint').style.display = 'none';
+  }
+
   function tick() {
     if (matchStartTime) {
       document.getElementById('match-clock').textContent = formatClock(Date.now() - matchStartTime);
@@ -74,6 +108,7 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     if (unsubscribeRemote) unsubscribeRemote();
     clearTimeout(remoteTapTimer);
     remoteTapCount = 0;
+    hideTapHint();
     if (clockInterval) clearInterval(clockInterval);
     unsubscribe = null;
     unsubscribeRemote = null;
@@ -102,10 +137,12 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     unsubscribeRemote = onRemotePress(() => {
       if (!controller) return;
       remoteTapCount += 1;
+      showTapHint(remoteTapCount, !controller.getState().state.display.server);
       clearTimeout(remoteTapTimer);
       remoteTapTimer = setTimeout(() => {
         const taps = remoteTapCount;
         remoteTapCount = 0;
+        hideTapHint();
         if (!controller) return;
         const choosingServer = !controller.getState().state.display.server;
         if (choosingServer) {

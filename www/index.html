@@ -67,13 +67,14 @@
       <button class="icon-btn" data-action="open-menu">⋮</button>
     </div>
     <div class="tiebreak-banner" id="tiebreak-banner" style="display:none;">TIE-BREAK</div>
+    <div class="tap-hint" id="tap-hint" style="display:none;"></div>
     <div class="serve-hint" id="serve-hint" style="display:none;">¿Quién saca? Control: 1 toque = izquierda · 2 toques = derecha</div>
     <div class="scoreboard">
       <div class="team-panel team-panel--a" data-action="point" data-team="A">
         <span class="serve-ball serve-ball--a" id="serve-dot-a"></span>
         <div class="team-top">
           <div class="team-name" id="name-a">Pareja A</div>
-          <div class="team-meta"><span id="games-a">0</span> games &middot; <span id="sets-a">0</span> sets</div>
+          <div class="team-meta"><div><span class="lbl">GAMES</span> <span id="games-a">0</span></div><div><span class="lbl">SETS</span> <span id="sets-a">0</span></div></div>
         </div>
         <div class="team-point" id="point-a">0</div>
         <button class="team-subtract-btn team-subtract-btn--a" data-action="undo-team" data-team="A" aria-label="Restar tanto a Pareja A">−</button>
@@ -82,7 +83,7 @@
         <span class="serve-ball serve-ball--b" id="serve-dot-b"></span>
         <div class="team-top">
           <div class="team-name" id="name-b">Pareja B</div>
-          <div class="team-meta"><span id="games-b">0</span> games &middot; <span id="sets-b">0</span> sets</div>
+          <div class="team-meta"><div><span class="lbl">GAMES</span> <span id="games-b">0</span></div><div><span class="lbl">SETS</span> <span id="sets-b">0</span></div></div>
         </div>
         <div class="team-point" id="point-b">0</div>
         <button class="team-subtract-btn team-subtract-btn--b" data-action="undo-team" data-team="B" aria-label="Restar tanto a Pareja B">−</button>
@@ -108,8 +109,7 @@
     <div class="summary-detail" id="summary-detail" style="width:100%; max-width:380px;"></div>
     <div id="summary-stats" style="width:100%; max-width:380px;"></div>
     <div class="home-actions">
-      <button class="btn btn-primary btn-block" data-action="share-match">📤 Compartir imagen</button>
-      <button class="btn btn-ghost btn-block" data-action="copy-match">📋 Copiar imagen</button>
+      <button class="btn btn-primary btn-block" data-action="copy-match">📋 Copiar imagen</button>
       <button class="btn btn-ghost btn-block" data-action="go-home">Volver al inicio</button>
       <button class="btn btn-ghost btn-block" data-action="go-history">Ver historial</button>
     </div>

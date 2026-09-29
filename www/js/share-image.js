@@ -1,4 +1,4 @@
-// Imagen del resultado del partido (PNG dibujado en canvas) para compartir o
+// Imagen del resultado del partido (PNG dibujado en canvas) para copiar o
 // copiar. Se dibuja a mano, sin librerías, para que funcione sin conexión.
 
 const W = 1080;
@@ -218,50 +218,29 @@ function blobToBase64(blob) {
   });
 }
 
-/** Compartir la imagen. 'shared' | 'cancelled' | 'unsupported' | 'failed' */
-export async function shareMatchImage(record, stats) {
-  let blob;
-  try { blob = await renderMatchImage(record, stats); } catch (e) { return 'failed'; }
-  if (!blob) return 'failed';
-  const fileName = 'zscore-partido.png';
-
-  // App nativa (Capacitor): archivo temporal + hoja de compartir del sistema.
-  const plugins = window.Capacitor?.Plugins;
-  if (plugins?.Filesystem && plugins?.Share) {
-    try {
-      const data = await blobToBase64(blob);
-      const saved = await plugins.Filesystem.writeFile({ path: fileName, data, directory: 'CACHE' });
-      await plugins.Share.share({ title: 'Z-Score Lite', files: [saved.uri] });
-      return 'shared';
-    } catch (e) {
-      if (/cancel/i.test(String(e?.message || e))) return 'cancelled';
-      // sigue con las alternativas web
-    }
-  }
-
-  const file = new File([blob], fileName, { type: 'image/png' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Z-Score Lite' });
-      return 'shared';
-    } catch (e) {
-      if (e && e.name === 'AbortError') return 'cancelled';
-    }
-  }
-  return 'unsupported';
-}
-
-/** Copiar la imagen al portapapeles. 'copied' | 'unsupported' | 'failed' */
+/** Copiar la imagen al portapapeles. 'copied' | 'downloaded' | 'failed' */
 export async function copyMatchImage(record, stats) {
   let blob;
   try { blob = await renderMatchImage(record, stats); } catch (e) { return 'failed'; }
   if (!blob) return 'failed';
+
+  // App nativa (Android): el WebView no permite copiar imágenes con la API
+  // web, así que se copia con el puente nativo (ver MainActivity.java).
+  if (window.ZScoreNative?.copyImage) {
+    try {
+      const base64 = await blobToBase64(blob);
+      if (window.ZScoreNative.copyImage(base64)) return 'copied';
+    } catch (e) { /* sigue con la API web */ }
+  }
+
+  // Navegador / PWA
   try {
     if (navigator.clipboard?.write && window.ClipboardItem) {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       return 'copied';
     }
   } catch (e) { /* cae a descarga */ }
+
   // Último recurso: descargar el archivo.
   try {
     const url = URL.createObjectURL(blob);
@@ -278,11 +257,9 @@ export async function copyMatchImage(record, stats) {
   }
 }
 
-/** Mensaje para el usuario según el resultado. null = no mostrar nada. */
-export function shareResultMessage(result) {
+/** Mensaje para el usuario según el resultado. */
+export function copyResultMessage(result) {
   if (result === 'copied') return 'Imagen copiada. Pegala en WhatsApp o donde quieras.';
   if (result === 'downloaded') return 'Se descargó la imagen del partido.';
-  if (result === 'unsupported') return 'Este dispositivo no permite compartir la imagen directo. Probá con "Copiar imagen".';
-  if (result === 'failed') return 'No se pudo generar la imagen.';
-  return null;
+  return 'No se pudo copiar la imagen.';
 }

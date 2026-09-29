@@ -439,6 +439,8 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 #view-scoreboard {
   background: var(--bg);
   position: relative;
+  text-transform: uppercase;
+  --center-clear: 96px; /* ancho que ocupan reloj y menu en el centro de arriba */
 }
 
 .scoreboard {
@@ -484,15 +486,20 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   top: calc(2px + var(--safe-top));
   /* deja libre el lugar de la pelota de saque en ambas puntas (simétrico,
      así el nombre queda centrado en su mitad de pantalla) */
-  left: calc(var(--serve-ball-size) + 20px);
-  right: calc(var(--serve-ball-size) + 20px);
+  left: calc(var(--serve-ball-size) + 16px);
+  right: calc(var(--serve-ball-size) + 16px);
   display: flex;
   justify-content: center;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
   z-index: 2;
   pointer-events: none;
 }
+
+/* El nombre y los games/sets no pueden llegar al centro, donde estan el
+   reloj y el boton de menu: se les deja ese espacio libre. */
+.team-panel--a .team-top { right: var(--center-clear); }
+.team-panel--b .team-top { left: var(--center-clear); }
 
 .team-name {
   min-width: 0;
@@ -502,17 +509,27 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   text-transform: uppercase;
   color: var(--text);
   line-height: 1.15;
-  white-space: nowrap;
+  text-align: right;
+}
+
+.team-name span {
+  display: block;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 
+.team-meta .lbl { font-size: 0.62em; opacity: 0.85; letter-spacing: 0.8px; }
+.team-meta .sep { opacity: 0.5; }
+
 .team-meta {
   flex: none;
-  font-size: clamp(13px, 2.2vw, 20px);
+  font-size: clamp(14px, 2.2vw, 20px);
   font-weight: 800;
   letter-spacing: 0.6px;
+  line-height: 1.15;
   white-space: nowrap;
+  text-align: left;
 }
 
 .team-panel--a .team-meta { color: var(--accent); }
@@ -553,7 +570,7 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: clamp(30px, 8vh, 46px); /* deja lugar al nombre/games-sets superpuestos arriba */
+  padding-top: clamp(44px, 12vh, 60px); /* deja lugar al nombre/games-sets superpuestos arriba */
   /* vh en vez de vw: el marcador siempre va horizontal, así que el alto de
      pantalla es el límite real (en landscape el ancho sobra). */
   font-size: clamp(200px, 92vh, 700px);
@@ -561,6 +578,17 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+}
+
+/* Textos (PUNTO DE ORO, VENTAJA, IGUALES) en lugar de numero: mas chicos, en
+   varias lineas si hace falta, para que entren enteros en la mitad de pantalla. */
+.team-point.is-long {
+  font-size: min(22vh, 8.5vw);
+  line-height: 1.05;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
+  overflow-wrap: anywhere;
 }
 
 .team-panel--a .team-point { color: var(--accent); text-shadow: 0 0 50px rgba(140, 226, 58, 0.35), 0 0 110px rgba(140, 226, 58, 0.15); }
@@ -613,10 +641,11 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   width: 54px;
   height: 54px;
   border-radius: 50%;
-  background: rgba(255, 92, 92, 0.12);
-  border: 2px solid rgba(255, 92, 92, 0.45);
-  color: var(--danger);
-  font-size: 30px;
+  background: var(--accent-b);
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255, 59, 59, 0.45);
+  font-size: 32px;
   font-weight: 700;
   line-height: 1;
   display: flex;
@@ -630,7 +659,7 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 .team-subtract-btn--b { right: calc(16px + var(--safe-right)); }
 
 .team-subtract-btn:active {
-  background: rgba(255, 92, 92, 0.25);
+  filter: brightness(0.85);
   transform: scale(0.92);
 }
 
@@ -647,6 +676,24 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   border-radius: 20px;
   letter-spacing: 0.4px;
   z-index: 5;
+}
+
+/* Indicador de toques del control: muestra cuantos se contaron antes de aplicar */
+.tap-hint {
+  position: absolute;
+  bottom: calc(80px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #0b0e13;
+  border-radius: 20px;
+  padding: 10px 22px;
+  font-size: clamp(16px, 2.8vw, 24px);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  z-index: 7;
+  pointer-events: none;
 }
 
 /* Aviso antes del primer tanto: el primer toque del control elige quién saca */

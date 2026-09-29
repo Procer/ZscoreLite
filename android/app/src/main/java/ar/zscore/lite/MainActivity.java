@@ -1,15 +1,24 @@
 package ar.zscore.lite;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
+import androidx.core.content.FileProvider;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
+import java.io.File;
+import java.io.FileOutputStream;
 
 /**
  * Intercepta las teclas de volumen a nivel nativo para que el control remoto
@@ -28,12 +37,50 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         hideSystemBars();
+        // Reintento tras el primer dibujado: en algunos equipos el primer
+        // hide() se pierde porque la ventana todavía no está lista.
+        getWindow().getDecorView().postDelayed(this::hideSystemBars, 400);
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().addJavascriptInterface(new NativeBridge(), "ZScoreNative");
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        hideSystemBars();
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) hideSystemBars();
+    }
+
+    /** Funciones nativas que la página puede llamar como window.ZScoreNative.* */
+    private class NativeBridge {
+        /** Copia una imagen PNG (base64, sin prefijo data:) al portapapeles del
+         * sistema, para poder pegarla en WhatsApp u otra app. */
+        @JavascriptInterface
+        public boolean copyImage(String base64Png) {
+            try {
+                byte[] bytes = Base64.decode(base64Png, Base64.DEFAULT);
+                File dir = new File(getCacheDir(), "shared");
+                if (!dir.exists() && !dir.mkdirs()) return false;
+                File file = new File(dir, "zscore-partido.png");
+                try (FileOutputStream out = new FileOutputStream(file)) {
+                    out.write(bytes);
+                }
+                Uri uri = FileProvider.getUriForFile(
+                    MainActivity.this, getPackageName() + ".fileprovider", file);
+                ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newUri(getContentResolver(), "Z-Score Lite", uri));
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "copyImage fallo", e);
+                return false;
+            }
+        }
     }
 
     /** Pantalla completa inmersiva: oculta barra de notificaciones y de

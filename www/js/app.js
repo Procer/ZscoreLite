@@ -5,7 +5,7 @@ import { initHistory } from './ui-history.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
-import { shareMatchImage, copyMatchImage, shareResultMessage } from './share-image.js';
+import { copyMatchImage, copyResultMessage } from './share-image.js';
 
 const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history'];
 const PIN_KEY = 'zscoreLitePin';
@@ -100,12 +100,8 @@ document.addEventListener('click', (e) => {
   if (action === 'go-home') { showView('home'); return; }
   if (action === 'go-history') { history.render(); showView('history'); return; }
   if (action === 'go-setup') { goToSetup(); return; }
-  if ((action === 'share-match' || action === 'copy-match') && lastSummaryRecord) {
-    const run = action === 'share-match' ? shareMatchImage : copyMatchImage;
-    run(lastSummaryRecord, lastSummaryStats).then((result) => {
-      const msg = shareResultMessage(result);
-      if (msg) alert(msg);
-    });
+  if (action === 'copy-match' && lastSummaryRecord) {
+    copyMatchImage(lastSummaryRecord, lastSummaryStats).then((result) => alert(copyResultMessage(result)));
     return;
   }
   if (action === 'go-last-match') { openLastMatchDetail(); return; }

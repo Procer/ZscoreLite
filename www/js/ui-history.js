@@ -2,7 +2,7 @@ import { listMatches } from './db.js';
 import { describeConfig, replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
 import { computeRecords, topList, POINTS_WIN, POINTS_LOSS } from './records.js';
-import { shareMatchImage, copyMatchImage, shareResultMessage } from './share-image.js';
+import { copyMatchImage, copyResultMessage } from './share-image.js';
 
 function formatDate(ts) {
   if (!ts) return '';
@@ -181,8 +181,7 @@ export function initHistory() {
       ${statsHtml}
       <div class="section-title">Detalles</div>
       <div class="stat-tile-card">${infoHtml}</div>
-      <button class="btn btn-primary btn-block" data-action="share-match">📤 Compartir imagen</button>
-      <button class="btn btn-ghost btn-block" data-action="copy-match">📋 Copiar imagen</button>
+      <button class="btn btn-primary btn-block" data-action="copy-match">📋 Copiar imagen</button>
       <button class="btn btn-ghost btn-block" data-action="close-match-detail">Cerrar</button>
     `;
     overlay.classList.add('is-active');
@@ -211,13 +210,9 @@ export function initHistory() {
       return;
     }
     const action = e.target.closest('[data-action]')?.dataset.action;
-    if ((action === 'share-match' || action === 'copy-match') && currentDetailMatch) {
-      e.stopPropagation(); // evita que el listener global de app.js también dispare el compartir
-      const result = action === 'share-match'
-        ? await shareMatchImage(currentDetailMatch, currentDetailStats)
-        : await copyMatchImage(currentDetailMatch, currentDetailStats);
-      const msg = shareResultMessage(result);
-      if (msg) alert(msg);
+    if (action === 'copy-match' && currentDetailMatch) {
+      e.stopPropagation(); // evita que el listener global de app.js también copie
+      alert(copyResultMessage(await copyMatchImage(currentDetailMatch, currentDetailStats)));
     }
   });
 
