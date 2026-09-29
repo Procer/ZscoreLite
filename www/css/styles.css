@@ -84,9 +84,10 @@ body {
 }
 
 .home-logo--big {
-  width: 148px;
-  height: 148px;
-  border-radius: 34px;
+  width: clamp(190px, 30vh, 260px);
+  height: clamp(190px, 30vh, 260px);
+  border-radius: 23%;
+  box-shadow: 0 0 60px rgba(140, 226, 58, 0.3);
 }
 
 .home-footer {
