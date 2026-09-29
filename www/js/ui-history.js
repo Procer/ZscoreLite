@@ -1,8 +1,8 @@
-import { listMatches } from './db.js';
+import { listMatches, deleteMatch, renamePlayer } from './db.js';
 import { describeConfig, replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
-import { computeRecords, topList, POINTS_WIN, POINTS_LOSS } from './records.js';
-import { copyMatchImage, copyResultMessage } from './share-image.js';
+import { computeRecords, topList, pct, periodRange, PERIODS, POINTS_WIN, POINTS_LOSS } from './records.js';
+import { copyMatchImage, copyRankingImage, copyResultMessage } from './share-image.js';
 
 function formatDate(ts) {
   if (!ts) return '';
@@ -52,7 +52,7 @@ function rivalList(map, empty) {
   const list = topList(map);
   if (!list.length) return `<div class="rk-empty">${empty}</div>`;
   return `<ul class="rk-list">${list.map((r) =>
-    `<li><span>${escapeHtml(r.name)}</span><b>${r.count > 1 ? `×${r.count}` : '×1'}</b></li>`).join('')}</ul>`;
+    `<li><span>${escapeHtml(r.name)}</span><b>×${r.count}</b></li>`).join('')}</ul>`;
 }
 
 function partnerList(map) {
@@ -64,6 +64,34 @@ function partnerList(map) {
       `<li><span>${escapeHtml(p.name)}</span><b>${p.won} G · ${p.lost} P</b></li>`).join('')}</ul>`;
 }
 
+function statTile(value, label, detail) {
+  return `
+    <div class="rk-stat">
+      <b>${value === null ? '—' : `${value}%`}</b>
+      <span>${label}</span>
+      <em>${detail}</em>
+    </div>`;
+}
+
+/** Estadísticas de saque y tie-break. En pádel se sabe qué pareja saca, no
+ * qué jugador, así que los jugadores muestran los números de su pareja. */
+function statsBlock(e, isPair) {
+  const s = e.serve, r = e.receive, t = e.tiebreakPoints;
+  if (!s.played && !r.played && !t.played) return '';
+  return `
+    <div class="rk-sub-title">Estadísticas${isPair ? '' : ' (junto a su pareja)'}</div>
+    <div class="rk-stats">
+      ${statTile(pct(s), 'Tantos ganados al saque', `${s.won} de ${s.played}`)}
+      ${statTile(pct(r), 'Tantos ganados al resto', `${r.won} de ${r.played}`)}
+      ${statTile(pct(t), 'Tantos en tie-break', t.played ? `${t.won} de ${t.played}` : 'sin tie-breaks')}
+      <div class="rk-stat">
+        <b>${e.tiebreaks.won}–${e.tiebreaks.lost}</b>
+        <span>Tie-breaks</span>
+        <em>ganados–perdidos</em>
+      </div>
+    </div>`;
+}
+
 function rankingCard(e, pos, isPair, index, maxPoints) {
   const many = e.played === 1 ? 'partido' : 'partidos';
   const verbPlayed = isPair ? 'jugaron' : 'jugó';
@@ -71,24 +99,28 @@ function rankingCard(e, pos, isPair, index, maxPoints) {
   const verbLost = isPair ? 'perdieron' : 'perdió';
   const summary = `<strong>${escapeHtml(e.name)}</strong> ${verbPlayed} <b>${e.played}</b> ${many}: ${verbWon} <b class="is-win">${e.won}</b> y ${verbLost} <b class="is-loss">${e.lost}</b>.`;
   const barW = maxPoints ? Math.max(4, Math.round((e.points / maxPoints) * 100)) : 0;
+  const streak = e.streak >= 2 ? ` · <span class="rk-fire">🔥 ${e.streak}</span>` : '';
   return `
     <div class="rk-card${pos <= 3 ? ` rk-card--top${pos}` : ''}" data-toggle="${index}">
       <div class="rk-head">
         <div class="rk-pos">${medal(pos)}</div>
         <div class="rk-main">
           <div class="rk-name">${escapeHtml(e.name)}</div>
-          <div class="rk-sub">${e.played} PJ · <span class="is-win">${e.won} G</span> · <span class="is-loss">${e.lost} P</span> · ${e.winPct}%</div>
+          <div class="rk-sub">${e.played} PJ · <span class="is-win">${e.won} G</span> · <span class="is-loss">${e.lost} P</span> · ${e.winPct}%${streak}</div>
         </div>
         <div class="rk-pts"><b>${e.points}</b><span>pts</span></div>
       </div>
       <div class="rk-bar"><i style="width:${barW}%"></i></div>
       <div class="rk-detail">
         <p class="rk-summary">${summary}</p>
+        <p class="rk-streak">Racha actual: <b>${e.streak}</b> · Mejor racha: <b>${e.bestStreak}</b></p>
+        ${statsBlock(e, isPair)}
         ${isPair ? '' : partnerList(e.partners)}
         <div class="rk-sub-title">${isPair ? 'Ganaron contra' : 'Ganó contra'}</div>
         ${rivalList(e.beat, 'Todavía sin victorias.')}
         <div class="rk-sub-title">${isPair ? 'Perdieron contra' : 'Perdió contra'}</div>
         ${rivalList(e.lostTo, 'Todavía sin derrotas.')}
+        ${isPair ? '' : `<button class="btn btn-ghost btn-block rk-edit" data-edit="${escapeHtml(e.name)}">✏️ Renombrar o fusionar jugador</button>`}
       </div>
     </div>`;
 }
@@ -98,11 +130,19 @@ export function initHistory() {
   const tabsEl = document.getElementById('hist-tabs');
   const overlay = document.getElementById('overlay-match-detail');
   const content = document.getElementById('match-detail-content');
+  const editOverlay = document.getElementById('overlay-player-edit');
+  const editContent = document.getElementById('player-edit-content');
   let cache = [];
   let records = { pairs: [], players: [] };
   let currentTab = 'matches';
+  let currentPeriod = 'all';
   let currentDetailMatch = null;
   let currentDetailStats = null;
+  let editingPlayer = null;
+
+  function periodLabel() {
+    return PERIODS.find((p) => p.id === currentPeriod)?.label || 'Todo';
+  }
 
   function renderMatches() {
     if (!cache.length) {
@@ -130,18 +170,26 @@ export function initHistory() {
   function renderRanking(kind) {
     const isPair = kind === 'pairs';
     const items = isPair ? records.pairs : records.players;
+    const chips = `
+      <div class="period-chips" id="period-chips">
+        ${PERIODS.map((p) => `<button class="period-chip${p.id === currentPeriod ? ' is-active' : ''}" data-period="${p.id}">${p.label}</button>`).join('')}
+      </div>`;
     if (!items.length) {
-      list.innerHTML = `<div class="empty-state">${isPair
-        ? 'Todavía no hay parejas con partidos terminados.<br/>Cuando termines partidos con dos jugadores cada lado, van a aparecer acá.'
-        : 'Todavía no hay jugadores con partidos terminados.'}</div>`;
+      list.innerHTML = `${chips}<div class="empty-state">${currentPeriod !== 'all'
+        ? 'No hay partidos terminados en este período.'
+        : isPair
+          ? 'Todavía no hay parejas con partidos terminados.<br/>Cuando termines partidos con dos jugadores cada lado, van a aparecer acá.'
+          : 'Todavía no hay jugadores con partidos terminados.'}</div>`;
       return;
     }
     const maxPoints = items[0].points;
     list.innerHTML = `
+      ${chips}
       <div class="rk-intro">
-        <strong>Ranking interno</strong>
-        <span>Ganar suma ${POINTS_WIN} pts · jugar suma ${POINTS_LOSS} pt. Tocá una tarjeta para ver contra quién ganó y perdió.</span>
+        <strong>Ranking interno · ${periodLabel()}</strong>
+        <span>Ganar suma ${POINTS_WIN} pts · jugar suma ${POINTS_LOSS} pt. Tocá una tarjeta para ver estadísticas y contra quién ganó y perdió.</span>
       </div>
+      <button class="btn btn-ghost btn-block" data-action="copy-ranking" style="margin-bottom:14px;">📋 Copiar imagen del ranking</button>
       ${items.map((e, i) => rankingCard(e, i + 1, isPair, i, maxPoints)).join('')}`;
   }
 
@@ -151,9 +199,13 @@ export function initHistory() {
     else renderRanking(currentTab);
   }
 
+  function recompute() {
+    records = computeRecords(cache, periodRange(currentPeriod));
+  }
+
   async function render() {
     cache = await listMatches();
-    records = computeRecords(cache);
+    recompute();
     renderTab();
   }
 
@@ -183,11 +235,55 @@ export function initHistory() {
       <div class="stat-tile-card">${infoHtml}</div>
       <button class="btn btn-primary btn-block" data-action="copy-match">📋 Copiar imagen</button>
       <button class="btn btn-ghost btn-block" data-action="close-match-detail">Cerrar</button>
+      <button class="btn btn-danger btn-block" data-action="delete-match">🗑 Eliminar partido</button>
     `;
     overlay.classList.add('is-active');
     currentDetailMatch = match;
     currentDetailStats = replayed.stats;
   }
+
+  // ---------- Renombrar / fusionar jugador ----------
+  function openEditPlayer(name) {
+    editingPlayer = name;
+    const others = records.players.filter((p) => p.name !== name).map((p) => p.name);
+    editContent.innerHTML = `
+      <h2>Editar jugador</h2>
+      <p>Escribí el nombre correcto. Si ya existe otro jugador con ese nombre, los dos se fusionan y sus partidos se suman.</p>
+      <input type="text" id="edit-player-name" value="${escapeHtml(name)}" autocomplete="off" />
+      ${others.length ? `
+        <div class="field-label" style="margin-top:6px;">Fusionar con…</div>
+        <div class="chip-list">${others.map((n) => `<button class="chip" data-merge="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('')}</div>` : ''}
+      <button class="btn btn-primary btn-block" data-action="save-player">Guardar</button>
+      <button class="btn btn-ghost btn-block" data-action="cancel-player">Cancelar</button>
+    `;
+    editOverlay.classList.add('is-active');
+  }
+
+  async function saveEditPlayer() {
+    const input = document.getElementById('edit-player-name');
+    const newName = (input?.value || '').trim().replace(/\s+/g, ' ');
+    if (!newName) { alert('Escribí un nombre.'); return; }
+    if (newName === editingPlayer) { editOverlay.classList.remove('is-active'); return; }
+    const exists = records.players.some((p) => p.name.toLowerCase() === newName.toLowerCase() && p.name !== editingPlayer);
+    if (exists && !confirm(`Ya existe "${newName}". Se van a fusionar "${editingPlayer}" y "${newName}" en un solo jugador. ¿Continuar?`)) return;
+    try {
+      const touched = await renamePlayer(editingPlayer, newName);
+      editOverlay.classList.remove('is-active');
+      await render();
+      alert(`Listo: se actualizaron ${touched} ${touched === 1 ? 'partido' : 'partidos'}.`);
+    } catch (err) {
+      alert(err?.message || 'No se pudo guardar el cambio.');
+    }
+  }
+
+  editOverlay.addEventListener('click', (e) => {
+    if (e.target === editOverlay) { editOverlay.classList.remove('is-active'); return; }
+    const merge = e.target.closest('[data-merge]');
+    if (merge) { document.getElementById('edit-player-name').value = merge.dataset.merge; return; }
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (action === 'cancel-player') editOverlay.classList.remove('is-active');
+    if (action === 'save-player') saveEditPlayer();
+  });
 
   tabsEl.addEventListener('click', (e) => {
     const tab = e.target.closest('[data-tab]')?.dataset.tab;
@@ -197,7 +293,21 @@ export function initHistory() {
     document.getElementById('view-history').scrollTop = 0;
   });
 
-  list.addEventListener('click', (e) => {
+  list.addEventListener('click', async (e) => {
+    const chip = e.target.closest('[data-period]');
+    if (chip) {
+      currentPeriod = chip.dataset.period;
+      recompute();
+      renderTab();
+      return;
+    }
+    if (e.target.closest('[data-action="copy-ranking"]')) {
+      const items = currentTab === 'pairs' ? records.pairs : records.players;
+      alert(copyResultMessage(await copyRankingImage(currentTab === 'pairs' ? 'parejas' : 'jugadores', items, periodLabel())));
+      return;
+    }
+    const edit = e.target.closest('[data-edit]');
+    if (edit) { openEditPlayer(edit.dataset.edit); return; }
     const card = e.target.closest('[data-index]');
     if (card) { openDetail(cache[Number(card.dataset.index)]); return; }
     const rk = e.target.closest('[data-toggle]');
@@ -213,6 +323,13 @@ export function initHistory() {
     if (action === 'copy-match' && currentDetailMatch) {
       e.stopPropagation(); // evita que el listener global de app.js también copie
       alert(copyResultMessage(await copyMatchImage(currentDetailMatch, currentDetailStats)));
+    }
+    if (action === 'delete-match' && currentDetailMatch) {
+      if (!confirm('¿Eliminar este partido? Se borra del historial y del ranking, y no se puede deshacer.')) return;
+      await deleteMatch(currentDetailMatch.id);
+      overlay.classList.remove('is-active');
+      currentDetailMatch = null;
+      await render();
     }
   });
 

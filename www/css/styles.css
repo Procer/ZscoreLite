@@ -1106,3 +1106,72 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 .summary-winner { font-size: 24px; font-weight: 800; color: var(--accent); }
 .summary-score { font-size: 32px; font-weight: 800; }
 .summary-detail { color: var(--text-dim); font-size: 14px; line-height: 1.7; }
+
+/* ---------- Configuracion ---------- */
+
+#view-settings { padding: calc(20px + var(--safe-top)) 20px calc(24px + var(--safe-bottom)); overflow-y: auto; }
+#view-settings .toggle-row, #view-settings .set-card, #view-settings > div > .btn { margin-bottom: 12px; }
+#view-settings .section-title { margin-top: 18px; }
+
+.set-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.set-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.set-title { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+.set-value { flex: none; font-size: 20px; font-weight: 800; color: var(--accent); }
+
+.range { width: 100%; margin-top: 12px; accent-color: var(--accent); height: 28px; }
+
+.seg { display: flex; gap: 4px; padding: 4px; margin-top: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; }
+.seg-btn { flex: 1; padding: 12px 6px; border-radius: 9px; font-size: 15px; font-weight: 700; color: var(--text-dim); }
+.seg-btn.is-active { background: linear-gradient(135deg, var(--accent), var(--accent-dim)); color: #0b0e13; }
+
+/* ---------- Alto contraste (sol directo) ---------- */
+
+:root.hc { --bg: #000; --bg-elevated: #0a0a0a; --bg-elevated-2: #141414; --accent: #2bff3a; --accent-b: #ff2a2a; --text: #fff; --text-dim: #d5d9df; --border: #4a4f57; }
+:root.hc .team-panel--a, :root.hc .team-panel--b { background: #000; }
+:root.hc .team-panel--a .team-point, :root.hc .team-panel--b .team-point { text-shadow: none; }
+:root.hc .team-panel--b { border-left: 3px solid #fff; }
+:root.hc .team-point { -webkit-text-stroke: 3px currentColor; }
+:root.hc .team-name, :root.hc .team-meta { text-shadow: none; }
+:root.hc .team-meta .lbl { opacity: 1; }
+:root.hc .match-clock, :root.hc .icon-btn { background: #000; color: #fff; border-color: #fff; }
+
+/* ---------- Ranking: filtros, rachas, estadisticas ---------- */
+
+.period-chips { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+.period-chip {
+  flex: none;
+  padding: 10px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.period-chip.is-active { background: var(--accent); border-color: var(--accent); color: #0b0e13; }
+
+.rk-fire { color: #ffb347; font-weight: 800; }
+.rk-streak { margin: 0 0 4px; font-size: 13px; color: var(--text-dim); }
+.rk-streak b { color: var(--text); }
+
+.rk-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rk-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.rk-stat b { font-size: 24px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+.rk-stat span { font-size: 12px; font-weight: 700; color: var(--text); }
+.rk-stat em { font-size: 11px; font-style: normal; color: var(--text-dim); }
+
+.rk-edit { margin-top: 16px; }

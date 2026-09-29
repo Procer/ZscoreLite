@@ -119,3 +119,66 @@ export const listPlayerNames = () => listNames('players');
 export async function deletePlayerName(name) {
   return tx('players', 'readwrite', (store) => store.delete(name));
 }
+
+// ---------- Copia de seguridad ----------
+
+export async function exportBackup() {
+  const matches = await listMatches();
+  const players = await listPlayerNames();
+  return {
+    app: 'zscore-lite',
+    version: 1,
+    exportedAt: Date.now(),
+    matches,
+    players,
+  };
+}
+
+/** Suma los partidos y jugadores del archivo a los existentes (mismo id = se pisa). */
+export async function importBackup(data) {
+  if (!data || data.app !== 'zscore-lite' || !Array.isArray(data.matches)) {
+    throw new Error('El archivo no es una copia de seguridad de Z-Score Lite.');
+  }
+  let matches = 0;
+  for (const m of data.matches) {
+    if (!m || !m.id) continue;
+    await saveMatch(m);
+    matches += 1;
+  }
+  for (const name of data.players || []) await savePlayerName(name);
+  return { matches };
+}
+
+// ---------- Editar jugadores ----------
+
+function cleanName(n) { return String(n || '').trim().replace(/\s+/g, ' '); }
+
+/** Cambia el nombre de un jugador en TODOS los partidos. Si el nombre nuevo ya
+ * existe, los dos quedan fusionados en uno solo. Devuelve cuántos partidos tocó. */
+export async function renamePlayer(oldName, newName) {
+  const from = cleanName(oldName).toLowerCase();
+  const to = cleanName(newName);
+  if (!from || !to) throw new Error('Falta el nombre.');
+  const matches = await listMatches();
+  let touched = 0;
+  for (const m of matches) {
+    let changed = false;
+    for (const side of ['A', 'B']) {
+      const team = m.teams?.[side];
+      if (!team) continue;
+      for (const slot of ['p1', 'p2']) {
+        if (cleanName(team[slot]).toLowerCase() === from) { team[slot] = to; changed = true; }
+      }
+      if (changed) {
+        const parts = [team.p1, team.p2].filter(Boolean);
+        m.teamNames = { ...m.teamNames, [side]: parts.length ? parts.join(' / ') : 'Sin nombre' };
+      }
+    }
+    if (changed) { await saveMatch(m); touched += 1; }
+  }
+  // Lista de nombres para autocompletar
+  const all = await listPlayerNames();
+  for (const n of all) if (cleanName(n).toLowerCase() === from) await deletePlayerName(n);
+  await savePlayerName(to);
+  return touched;
+}

@@ -2,12 +2,14 @@ import { createMatchController, resumeMatchController } from './match-controller
 import { initSetupWizard } from './ui-setup.js';
 import { initScoreboard } from './ui-scoreboard.js';
 import { initHistory } from './ui-history.js';
+import { initSettings } from './ui-settings.js';
+import { applyDisplaySettings } from './settings.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
 import { copyMatchImage, copyResultMessage } from './share-image.js';
 
-const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history'];
+const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history', 'settings'];
 const PIN_KEY = 'zscoreLitePin';
 let lastSummaryRecord = null;
 let lastSummaryStats = null;
@@ -34,7 +36,9 @@ function showView(name) {
   } catch (e) { /* no soportado en este navegador, se ignora */ }
 }
 
+applyDisplaySettings();
 const history = initHistory();
+const settings = initSettings({ onDataChanged: () => refreshLastMatchButton() });
 
 const setup = initSetupWizard((meta) => {
   const controller = createMatchController(meta);
@@ -99,6 +103,7 @@ document.addEventListener('click', (e) => {
 
   if (action === 'go-home') { showView('home'); return; }
   if (action === 'go-history') { history.render(); showView('history'); return; }
+  if (action === 'go-settings') { settings.render(); showView('settings'); return; }
   if (action === 'go-setup') { goToSetup(); return; }
   if (action === 'copy-match' && lastSummaryRecord) {
     copyMatchImage(lastSummaryRecord, lastSummaryStats).then((result) => alert(copyResultMessage(result)));

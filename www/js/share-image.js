@@ -218,12 +218,8 @@ function blobToBase64(blob) {
   });
 }
 
-/** Copiar la imagen al portapapeles. 'copied' | 'downloaded' | 'failed' */
-export async function copyMatchImage(record, stats) {
-  let blob;
-  try { blob = await renderMatchImage(record, stats); } catch (e) { return 'failed'; }
-  if (!blob) return 'failed';
-
+/** Copia un PNG al portapapeles. 'copied' | 'downloaded' | 'failed' */
+async function copyBlob(blob, fileName) {
   // App nativa (Android): el WebView no permite copiar imágenes con la API
   // web, así que se copia con el puente nativo (ver MainActivity.java).
   if (window.ZScoreNative?.copyImage) {
@@ -246,7 +242,7 @@ export async function copyMatchImage(record, stats) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'zscore-partido.png';
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -257,9 +253,117 @@ export async function copyMatchImage(record, stats) {
   }
 }
 
+export async function copyMatchImage(record, stats) {
+  let blob;
+  try { blob = await renderMatchImage(record, stats); } catch (e) { return 'failed'; }
+  if (!blob) return 'failed';
+  return copyBlob(blob, 'zscore-partido.png');
+}
+
+/** Imagen del ranking (top 10) para copiar y mandar al grupo. */
+export async function renderRankingImage(kindLabel, items, periodLabel) {
+  const top = items.slice(0, 10);
+  const rowH = 118;
+  const headH = 300;
+  const height = headH + top.length * rowH + 150;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  const bg = ctx.createLinearGradient(0, 0, 0, height);
+  bg.addColorStop(0, '#111722');
+  bg.addColorStop(1, '#070a0f');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, height);
+  const glow = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, 700);
+  glow.addColorStop(0, 'rgba(140,226,58,0.16)');
+  glow.addColorStop(1, 'rgba(140,226,58,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, height);
+
+  const logo = await loadImage('icons/icon-192.png');
+  if (logo) {
+    ctx.save();
+    roundRect(ctx, 60, 56, 92, 92, 22);
+    ctx.clip();
+    ctx.drawImage(logo, 60, 56, 92, 92);
+    ctx.restore();
+  }
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#f5f7fa';
+  ctx.font = `800 44px ${FONT}`;
+  ctx.fillText('Z-Score ', 176, 116);
+  const zw = ctx.measureText('Z-Score ').width;
+  ctx.fillStyle = GREEN;
+  ctx.fillText('Lite', 176 + zw, 116);
+
+  ctx.fillStyle = '#f5f7fa';
+  ctx.font = `900 70px ${FONT}`;
+  ctx.fillText('RANKING ' + kindLabel.toUpperCase(), 60, 240);
+  ctx.fillStyle = '#9aa4b2';
+  ctx.font = `600 32px ${FONT}`;
+  ctx.fillText(periodLabel, 60, 285);
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const max = Math.max(1, top[0]?.points || 1);
+  top.forEach((e, i) => {
+    const y = headH + i * rowH;
+    roundRect(ctx, 50, y, W - 100, rowH - 14, 24);
+    ctx.fillStyle = i === 0 ? 'rgba(255,200,60,0.10)' : 'rgba(21,26,34,0.92)';
+    ctx.fill();
+    ctx.strokeStyle = i === 0 ? 'rgba(255,200,60,0.5)' : '#262e3b';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#9aa4b2';
+    ctx.font = `800 44px ${FONT}`;
+    ctx.fillText(i < 3 ? medals[i] : '#' + (i + 1), 118, y + 66);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#f5f7fa';
+    fitText(ctx, e.name.toUpperCase(), 180, y + 50, 600, 40, 800);
+    ctx.fillStyle = '#9aa4b2';
+    ctx.font = `600 26px ${FONT}`;
+    ctx.fillText(`${e.played} PJ · ${e.won} G · ${e.lost} P · ${e.winPct}%`, 180, y + 84);
+
+    // barra de puntos
+    roundRect(ctx, 180, y + 88, 600, 5, 3);
+    ctx.fillStyle = '#0b0e13';
+    ctx.fill();
+    roundRect(ctx, 180, y + 88, Math.max(8, 600 * (e.points / max)), 5, 3);
+    ctx.fillStyle = GREEN;
+    ctx.fill();
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#f5f7fa';
+    ctx.font = `900 56px ${FONT}`;
+    ctx.fillText(String(e.points), W - 130, y + 62);
+    ctx.fillStyle = '#9aa4b2';
+    ctx.font = `700 22px ${FONT}`;
+    ctx.fillText('PTS', W - 130, y + 88);
+  });
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#5c6675';
+  ctx.font = `600 26px ${FONT}`;
+  ctx.fillText('Ganar suma 3 pts · jugar suma 1 pt', W / 2, height - 84);
+  ctx.fillText('zscore.ar  ·  Creado por ZSG', W / 2, height - 40);
+
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
+}
+
+export async function copyRankingImage(kindLabel, items, periodLabel) {
+  let blob;
+  try { blob = await renderRankingImage(kindLabel, items, periodLabel); } catch (e) { return 'failed'; }
+  if (!blob) return 'failed';
+  return copyBlob(blob, 'zscore-ranking.png');
+}
+
 /** Mensaje para el usuario según el resultado. */
 export function copyResultMessage(result) {
   if (result === 'copied') return 'Imagen copiada. Pegala en WhatsApp o donde quieras.';
-  if (result === 'downloaded') return 'Se descargó la imagen del partido.';
+  if (result === 'downloaded') return 'Se descargó la imagen.';
   return 'No se pudo copiar la imagen.';
 }

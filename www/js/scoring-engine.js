@@ -211,7 +211,7 @@ export function replayMatch(config, events) {
     const pointServer = state.inTiebreak
       ? tiebreakServerAt(state.tiebreakA + state.tiebreakB + 1, tiebreakInitialServer)
       : state.server;
-    state.pointLog.push({ team: ev.team, t: ev.t, server: pointServer });
+    state.pointLog.push({ team: ev.team, t: ev.t, server: pointServer, tiebreak: state.inTiebreak });
 
     if (state.inTiebreak) {
       if (ev.team === 'A') state.tiebreakA += 1; else state.tiebreakB += 1;

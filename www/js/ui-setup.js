@@ -1,6 +1,7 @@
 import { describeConfig } from './scoring-engine.js';
 import { listPlayerNames, savePlayerName } from './db.js';
 import { initRemoteButton, onRemotePress } from './remote-button.js';
+import { firstTapTeam } from './settings.js';
 
 initRemoteButton();
 
@@ -247,7 +248,7 @@ export function initSetupWizard(onStartMatch) {
         <div class="summary-card-row"><strong>${escapeHtml(teamPreview('A'))}</strong> vs <strong>${escapeHtml(teamPreview('B'))}</strong></div>
         <div class="summary-card-row muted">${escapeHtml(describeConfig(cfg))}</div>
         <div class="summary-card-row muted">Al empezar, el primer toque elige quién saca. Después suma tantos.</div>
-        <div class="summary-card-row muted">Control remoto: 1 toque = lado izquierdo, 2 toques = lado derecho, 3 toques = deshacer el último tanto.</div>
+        <div class="summary-card-row muted">Control remoto: ${firstTapTeam() === 'A' ? '1 toque = lado izquierdo, 2 toques = lado derecho' : '1 toque = lado derecho, 2 toques = lado izquierdo'}, 3 toques = deshacer el último tanto.</div>
       </div>
       <div class="toggle-row">
         <div>

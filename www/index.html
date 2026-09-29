@@ -31,7 +31,8 @@
     <div class="home-title">Z-Score <strong>Lite</strong></div>
     <div class="home-actions">
       <button class="btn btn-primary btn-block" data-action="go-setup">Nuevo partido</button>
-      <button class="btn btn-ghost btn-block" data-action="go-history">Historial</button>
+      <button class="btn btn-ghost btn-block" data-action="go-history">Historial y ranking</button>
+      <button class="btn btn-ghost btn-block" data-action="go-settings">Configuración</button>
       <button class="btn btn-ghost btn-block" data-action="go-last-match" id="btn-last-match" style="display:none;">Ver último partido</button>
     </div>
     <div class="home-footer">
@@ -129,6 +130,21 @@
       <button class="hist-tab" data-tab="players">Jugadores</button>
     </div>
     <div id="history-list"></div>
+  </section>
+
+  <!-- EDITAR JUGADOR -->
+  <div class="overlay" id="overlay-player-edit">
+    <div class="sheet" id="player-edit-content"></div>
+  </div>
+
+  <!-- CONFIGURACION -->
+  <section id="view-settings" class="view">
+    <div class="setup-header">
+      <button class="icon-btn" data-action="go-home">←</button>
+      <h1>Configuración</h1>
+    </div>
+    <div id="settings-body"></div>
+    <input type="file" id="backup-file" accept=".json,application/json" style="display:none;" />
   </section>
 
   <!-- DETALLE DE PARTIDO -->

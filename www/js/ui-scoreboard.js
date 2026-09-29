@@ -1,6 +1,7 @@
 import { startWakeLock, stopWakeLock } from './wakelock.js';
 import { onRemotePress } from './remote-button.js';
 import { createFx } from './fx.js';
+import { getSettings, firstTapTeam, feedbackTap } from './settings.js';
 
 function formatClock(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -37,7 +38,7 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   // cortas un doble toque se leía como dos toques sueltos y el game lo
   // ganaba el equipo equivocado. La ventana es larga y se ve la cuenta
   // regresiva en pantalla, así se sabe qué se va a aplicar antes de que pase.
-  const REMOTE_TAP_WINDOW_MS = 1800;
+  // (la duración es configurable: getSettings().tapWindowMs)
   let remoteTapCount = 0;
   let remoteTapTimer = null;
   let tapBarAnim = null;
@@ -184,6 +185,9 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     document.getElementById('sets-b').textContent = setsWonB;
 
     document.getElementById('serve-hint').style.display = state.display.server ? 'none' : '';
+    document.querySelector('#serve-hint span').innerHTML = firstTapTeam() === 'A'
+      ? 'CONTROL: 1 TOQUE = IZQUIERDA<br>2 TOQUES = DERECHA'
+      : 'CONTROL: 1 TOQUE = DERECHA<br>2 TOQUES = IZQUIERDA';
 
     const tieBanner = document.getElementById('tiebreak-banner');
     tieBanner.style.display = state.display.inTiebreak ? '' : 'none';
@@ -214,18 +218,27 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   // vacía: cuando llega a cero se aplica. Un toque más reinicia la cuenta.
   function showTapHint(taps, choosingServer) {
     const el = document.getElementById('tap-hint');
-    const side = taps === 1 ? 'IZQUIERDA' : taps === 2 ? 'DERECHA' : null;
+    const team = teamForTaps(taps);
+    const side = team ? (team === 'A' ? 'IZQUIERDA' : 'DERECHA') : null;
     const text = choosingServer
       ? (side ? `SACA ${side}` : '')
       : (side ? `TANTO ${side}` : 'DESHACER ÚLTIMO TANTO');
     document.getElementById('tap-text').textContent = text ? `${taps} · ${text}` : '';
-    el.dataset.side = taps === 1 ? 'a' : taps === 2 ? 'b' : 'undo';
+    el.dataset.side = team ? team.toLowerCase() : 'undo';
     el.style.display = text ? '' : 'none';
     tapBarAnim?.cancel();
     tapBarAnim = document.getElementById('tap-bar').animate(
       [{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }],
-      { duration: REMOTE_TAP_WINDOW_MS, easing: 'linear', fill: 'forwards' },
+      { duration: getSettings().tapWindowMs, easing: 'linear', fill: 'forwards' },
     );
+  }
+
+  /** Equipo que corresponde a esa cantidad de toques (null = deshacer). */
+  function teamForTaps(taps) {
+    const first = firstTapTeam();
+    if (taps === 1) return first;
+    if (taps === 2) return first === 'A' ? 'B' : 'A';
+    return null;
   }
 
   function hideTapHint() {
@@ -276,6 +289,7 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     unsubscribeRemote = onRemotePress(() => {
       if (!controller) return;
       remoteTapCount += 1;
+      feedbackTap(remoteTapCount >= 3 ? 3 : remoteTapCount);
       showTapHint(remoteTapCount, !controller.getState().state.display.server);
       clearTimeout(remoteTapTimer);
       remoteTapTimer = setTimeout(() => {
@@ -283,16 +297,16 @@ export function initScoreboard({ onMatchFinished, onPause }) {
         remoteTapCount = 0;
         hideTapHint();
         if (!controller) return;
+        feedbackTap(0);
+        const team = teamForTaps(taps);
         const choosingServer = !controller.getState().state.display.server;
         if (choosingServer) {
-          if (taps === 1) controller.setFirstServer('A');
-          else if (taps === 2) controller.setFirstServer('B');
+          if (team) controller.setFirstServer(team);
           return;
         }
-        if (taps === 1) controller.addPoint('A');
-        else if (taps === 2) controller.addPoint('B');
-        else if (taps >= 3) controller.undo();
-      }, REMOTE_TAP_WINDOW_MS);
+        if (team) controller.addPoint(team);
+        else controller.undo();
+      }, getSettings().tapWindowMs);
     });
   }
 

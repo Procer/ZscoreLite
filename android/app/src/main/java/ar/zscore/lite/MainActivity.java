@@ -3,9 +3,15 @@ package ar.zscore.lite;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Base64;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -78,6 +84,77 @@ public class MainActivity extends BridgeActivity {
                 return true;
             } catch (Exception e) {
                 Log.e(TAG, "copyImage fallo", e);
+                return false;
+            }
+        }
+
+        /** Pitido corto de frecuencia y duracion dadas (confirma un toque del control). */
+        @JavascriptInterface
+        public void beep(int freq, int ms) {
+            new Thread(() -> {
+                AudioTrack track = null;
+                try {
+                    int rate = 22050;
+                    int n = rate * Math.max(20, Math.min(ms, 600)) / 1000;
+                    short[] buf = new short[n];
+                    int fade = Math.min(n / 4, rate / 200);
+                    for (int i = 0; i < n; i++) {
+                        double env = i < fade ? (double) i / fade : (i > n - fade ? (double) (n - i) / fade : 1.0);
+                        buf[i] = (short) (Math.sin(2 * Math.PI * i * freq / rate) * 14000 * env);
+                    }
+                    track = new AudioTrack.Builder()
+                        .setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                        .setAudioFormat(new AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(rate)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                        .setBufferSizeInBytes(n * 2)
+                        .setTransferMode(AudioTrack.MODE_STATIC).build();
+                    track.write(buf, 0, n);
+                    track.play();
+                    Thread.sleep(ms + 60);
+                } catch (Exception e) {
+                    Log.e(TAG, "beep fallo", e);
+                } finally {
+                    if (track != null) track.release();
+                }
+            }).start();
+        }
+
+        @JavascriptInterface
+        public void vibrate(int ms) {
+            try {
+                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                if (v != null) v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+            } catch (Exception e) {
+                Log.e(TAG, "vibrate fallo", e);
+            }
+        }
+
+        /** Guarda el archivo (base64) y abre el menu de compartir del sistema
+         * (WhatsApp, Drive, correo...). Se usa para la copia de seguridad. */
+        @JavascriptInterface
+        public boolean shareFile(String name, String base64, String mime) {
+            try {
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                File dir = new File(getCacheDir(), "shared");
+                if (!dir.exists() && !dir.mkdirs()) return false;
+                File file = new File(dir, name.replaceAll("[^A-Za-z0-9._-]", "_"));
+                try (FileOutputStream out = new FileOutputStream(file)) {
+                    out.write(bytes);
+                }
+                Uri uri = FileProvider.getUriForFile(
+                    MainActivity.this, getPackageName() + ".fileprovider", file);
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType(mime);
+                send.putExtra(Intent.EXTRA_STREAM, uri);
+                send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                runOnUiThread(() -> startActivity(Intent.createChooser(send, "Copia de seguridad")));
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "shareFile fallo", e);
                 return false;
             }
         }
