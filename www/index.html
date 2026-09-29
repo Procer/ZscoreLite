@@ -108,7 +108,8 @@
     <div class="summary-detail" id="summary-detail" style="width:100%; max-width:380px;"></div>
     <div id="summary-stats" style="width:100%; max-width:380px;"></div>
     <div class="home-actions">
-      <button class="btn btn-primary btn-block" data-action="share-match">📤 Compartir resultado</button>
+      <button class="btn btn-primary btn-block" data-action="share-match">📤 Compartir imagen</button>
+      <button class="btn btn-ghost btn-block" data-action="copy-match">📋 Copiar imagen</button>
       <button class="btn btn-ghost btn-block" data-action="go-home">Volver al inicio</button>
       <button class="btn btn-ghost btn-block" data-action="go-history">Ver historial</button>
     </div>
@@ -119,6 +120,11 @@
     <div class="setup-header">
       <button class="icon-btn" data-action="go-home">←</button>
       <h1>Historial</h1>
+    </div>
+    <div class="hist-tabs" id="hist-tabs">
+      <button class="hist-tab is-active" data-tab="matches">Partidos</button>
+      <button class="hist-tab" data-tab="pairs">Parejas</button>
+      <button class="hist-tab" data-tab="players">Jugadores</button>
     </div>
     <div id="history-list"></div>
   </section>

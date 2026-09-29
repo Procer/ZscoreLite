@@ -5,7 +5,7 @@ import { initHistory } from './ui-history.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
-import { buildShareText, shareMatch } from './share.js';
+import { shareMatchImage, copyMatchImage, shareResultMessage } from './share-image.js';
 
 const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history'];
 const PIN_KEY = 'zscoreLitePin';
@@ -100,10 +100,11 @@ document.addEventListener('click', (e) => {
   if (action === 'go-home') { showView('home'); return; }
   if (action === 'go-history') { history.render(); showView('history'); return; }
   if (action === 'go-setup') { goToSetup(); return; }
-  if (action === 'share-match' && lastSummaryRecord) {
-    shareMatch(buildShareText(lastSummaryRecord, lastSummaryStats)).then((result) => {
-      if (result === 'copied') alert('Copiado. Pegalo en WhatsApp o donde quieras mandarlo.');
-      if (result === 'failed') alert('No se pudo compartir ni copiar en este navegador.');
+  if ((action === 'share-match' || action === 'copy-match') && lastSummaryRecord) {
+    const run = action === 'share-match' ? shareMatchImage : copyMatchImage;
+    run(lastSummaryRecord, lastSummaryStats).then((result) => {
+      const msg = shareResultMessage(result);
+      if (msg) alert(msg);
     });
     return;
   }

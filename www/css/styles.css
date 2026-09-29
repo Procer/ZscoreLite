@@ -717,7 +717,252 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
 .match-card-meta { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
 .match-card-score { font-weight: 700; color: var(--accent); font-size: 14px; }
 
-.empty-state { text-align: center; color: var(--text-dim); padding: 40px 20px; }
+.empty-state { text-align: center; color: var(--text-dim); padding: 40px 20px; line-height: 1.5; }
+
+/* Pestañas: Partidos / Parejas / Jugadores */
+.hist-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.hist-tab {
+  flex: 1;
+  padding: 12px 6px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dim);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.hist-tab.is-active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  color: #0b0e13;
+}
+
+/* Tarjeta de partido: tablero con una fila por pareja y una columna por set */
+.hm-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 14px;
+  padding: 14px 16px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: linear-gradient(160deg, var(--bg-elevated-2), var(--bg-elevated) 60%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.hm-card:active { transform: scale(0.985); }
+
+.hm-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+}
+
+.hm-badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.hm-badge--live { color: var(--accent); border-color: var(--accent-dim); }
+
+.hm-table { display: flex; flex-direction: column; gap: 2px; }
+
+.hm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.hm-row + .hm-row { border-top: 1px solid var(--border); }
+
+.hm-dot {
+  flex: none;
+  width: 6px;
+  align-self: stretch;
+  border-radius: 4px;
+}
+
+.hm-row--a .hm-dot { background: var(--accent); }
+.hm-row--b .hm-dot { background: var(--accent-b); }
+
+.hm-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-row.is-loser .hm-name,
+.hm-row.is-loser .hm-dot { opacity: 0.5; }
+
+.hm-trophy { flex: none; font-size: 16px; }
+
+.hm-sets { display: flex; flex: none; gap: 4px; }
+
+.hm-set {
+  min-width: 30px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.hm-row--a .hm-set.is-won { color: var(--accent); font-weight: 800; }
+.hm-row--b .hm-set.is-won { color: var(--accent-b); font-weight: 800; }
+
+.hm-foot {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Detalle del partido: tablero más grande */
+.hm-table--big .hm-name { font-size: 19px; }
+.hm-table--big .hm-set { font-size: 32px; min-width: 40px; }
+.hm-table--big .hm-row { padding: 14px 0; }
+
+.hm-winner {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--accent);
+  text-align: center;
+  margin-top: 2px;
+}
+
+.hm-winner--muted { color: var(--text-dim); font-size: 16px; }
+
+/* Ranking interno (parejas y jugadores) */
+.rk-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(140, 226, 58, 0.06);
+  border: 1px solid rgba(140, 226, 58, 0.2);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.rk-intro strong { color: var(--accent); font-size: 14px; }
+
+.rk-card {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: linear-gradient(160deg, var(--bg-elevated-2), var(--bg-elevated) 60%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.rk-card--top1 { border-color: rgba(255, 200, 60, 0.55); box-shadow: 0 8px 28px rgba(255, 200, 60, 0.12); }
+.rk-card--top2 { border-color: rgba(200, 210, 225, 0.4); }
+.rk-card--top3 { border-color: rgba(205, 127, 50, 0.45); }
+
+.rk-head { display: flex; align-items: center; gap: 12px; }
+
+.rk-pos {
+  flex: none;
+  width: 40px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+.rk-main { flex: 1; min-width: 0; }
+
+.rk-name {
+  font-size: 16px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.rk-sub { margin-top: 4px; font-size: 13px; color: var(--text-dim); }
+
+.is-win { color: var(--accent); }
+.is-loss { color: var(--accent-b); }
+
+.rk-pts { flex: none; text-align: right; line-height: 1; }
+.rk-pts b { display: block; font-size: 30px; font-weight: 800; color: var(--text); }
+.rk-pts span { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+
+.rk-bar {
+  height: 5px;
+  margin-top: 12px;
+  border-radius: 4px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.rk-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+}
+
+.rk-detail { display: none; margin-top: 14px; }
+.rk-card.is-open .rk-detail { display: block; }
+
+.rk-summary { margin: 0 0 6px; font-size: 14px; line-height: 1.5; color: var(--text); }
+.rk-summary b { font-weight: 800; }
+
+.rk-sub-title {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+
+.rk-list { list-style: none; margin: 0; padding: 0; }
+
+.rk-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.rk-list li:last-child { border-bottom: none; }
+.rk-list li b { flex: none; color: var(--text-dim); }
+.rk-empty { font-size: 13px; color: var(--text-dim); }
 
 /* ---------- Summary ---------- */
 
