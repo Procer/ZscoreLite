@@ -15,6 +15,7 @@ export const DEFAULTS = {
   vibrate: true,
   highContrast: false,
   ballSize: 'm',
+  liveAuto: false, // transmitir en vivo cada partido apenas empieza
 };
 
 let cache = null;

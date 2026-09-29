@@ -1,0 +1,26 @@
+[Unit]
+Description=Z-Score Lite - partido en vivo
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+Environment=PORT=3720
+Environment=HOST=127.0.0.1
+Environment=DATA_DIR=/var/www/zscore/live-data
+WorkingDirectory=/var/www/zscore/live-server
+ExecStart=/usr/bin/node /var/www/zscore/live-server/live-server.cjs
+Restart=always
+RestartSec=3
+
+# Aislamiento: solo puede escribir en su carpeta de datos
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/zscore/live-data
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

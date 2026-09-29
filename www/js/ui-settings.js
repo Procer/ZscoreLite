@@ -60,6 +60,9 @@ export function initSettings({ onDataChanged }) {
         ${seg('ballSize', Object.entries(BALL_SIZES).map(([k, v]) => [k, v.label]), s.ballSize)}
       </div>
 
+      <div class="section-title">Partido en vivo</div>
+      ${toggle('liveAuto', 'Transmitir cada partido', 'Genera el link para el público apenas empieza el partido. También se puede activar desde el menú del marcador.', s.liveAuto)}
+
       <div class="section-title">Datos</div>
       <div class="set-card">
         <div class="set-title">Copia de seguridad</div>

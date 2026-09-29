@@ -3,7 +3,9 @@ import { initSetupWizard } from './ui-setup.js';
 import { initScoreboard } from './ui-scoreboard.js';
 import { initHistory } from './ui-history.js';
 import { initSettings } from './ui-settings.js';
-import { applyDisplaySettings } from './settings.js';
+import { applyDisplaySettings, getSettings } from './settings.js';
+import { initLiveUi } from './ui-live.js';
+import { startLive, finishLive } from './live.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
@@ -43,11 +45,13 @@ const settings = initSettings({ onDataChanged: () => refreshLastMatchButton() })
 const setup = initSetupWizard((meta) => {
   const controller = createMatchController(meta);
   scoreboard.start(controller);
+  autoLive(controller);
   showView('scoreboard');
 });
 
 const scoreboard = initScoreboard({
   onMatchFinished: (record) => {
+    finishLive();
     renderSummary(record);
     refreshLastMatchButton();
     showView('summary');
@@ -55,7 +59,15 @@ const scoreboard = initScoreboard({
   onPause: () => {
     showView('home');
   },
+  onOpenLive: () => liveUi.open(),
 });
+
+const liveUi = initLiveUi({ getController: () => scoreboard.getController() });
+
+/** Si el club eligió transmitir cada partido, el link se arma solo. */
+function autoLive(controller) {
+  if (getSettings().liveAuto) startLive(controller).catch(() => {});
+}
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -227,6 +239,7 @@ function openResumePrompt(record, { onDiscard } = {}) {
       overlay.classList.remove('is-active');
       const controller = resumeMatchController(record);
       scoreboard.start(controller);
+      autoLive(controller);
       showView('scoreboard');
     } else if (action === 'resume-discard') {
       overlay.classList.remove('is-active');

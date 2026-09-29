@@ -138,7 +138,7 @@ export function createMatchController(meta, resumeEvents) {
     return () => listeners.delete(cb);
   }
 
-  return { addPoint, setFirstServer, undo, undoLastForTeam, finalizeAndSave, getState, subscribe, teamNames, config };
+  return { id: meta.id, addPoint, setFirstServer, undo, undoLastForTeam, finalizeAndSave, getState, subscribe, teamNames, config };
 }
 
 /** Reconstruye un controlador a partir de un partido guardado en curso. */

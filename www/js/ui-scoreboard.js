@@ -20,7 +20,7 @@ const CELEBRATION = {
   match: { hold: 3800, afterHold: 2700 },
 };
 
-export function initScoreboard({ onMatchFinished, onPause }) {
+export function initScoreboard({ onMatchFinished, onPause, onOpenLive }) {
   const root = document.getElementById('view-scoreboard');
   const overlayMenu = document.getElementById('overlay-menu');
   const banner = document.getElementById('win-banner');
@@ -343,11 +343,15 @@ export function initScoreboard({ onMatchFinished, onPause }) {
       overlayMenu.classList.remove('is-active');
       finishMatch();
     }
+    if (action === 'open-live') {
+      overlayMenu.classList.remove('is-active');
+      onOpenLive?.();
+    }
     if (action === 'pause-match') {
       overlayMenu.classList.remove('is-active');
       pauseMatch();
     }
   });
 
-  return { start };
+  return { start, getController: () => controller };
 }

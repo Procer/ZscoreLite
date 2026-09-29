@@ -123,6 +123,34 @@ public class MainActivity extends BridgeActivity {
             }).start();
         }
 
+        /** Copia texto plano (un link) al portapapeles del sistema. */
+        @JavascriptInterface
+        public boolean copyText(String text) {
+            try {
+                ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newPlainText("Z-Score Lite", text));
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "copyText fallo", e);
+                return false;
+            }
+        }
+
+        /** Abre el menu de compartir del sistema con un texto (WhatsApp, etc.). */
+        @JavascriptInterface
+        public boolean shareText(String text) {
+            try {
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("text/plain");
+                send.putExtra(Intent.EXTRA_TEXT, text);
+                runOnUiThread(() -> startActivity(Intent.createChooser(send, "Compartir partido en vivo")));
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "shareText fallo", e);
+                return false;
+            }
+        }
+
         @JavascriptInterface
         public void vibrate(int ms) {
             try {

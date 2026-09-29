@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e13" />
+  <meta name="robots" content="noindex" />
+  <title>Partido en vivo · Z-Score Lite</title>
+  <link rel="icon" href="icons/favicon-32.png" />
+  <style>
+    :root {
+      --bg: #0b0e13; --elev: #151a22; --border: #262e3b;
+      --a: #8ce23a; --b: #ff3b3b; --text: #f5f7fa; --dim: #9aa4b2;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      text-transform: uppercase; -webkit-tap-highlight-color: transparent; }
+    body { display: flex; flex-direction: column; position: relative; }
+
+    #bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: calc(8px + env(safe-area-inset-top)) 14px 8px; font-size: 13px; font-weight: 800; letter-spacing: 0.6px; }
+    #badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px;
+      background: rgba(255, 59, 59, 0.15); color: var(--b); border: 1px solid rgba(255, 59, 59, 0.4); }
+    #badge::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: currentColor; animation: blink 1.4s ease-in-out infinite; }
+    #badge.is-off { background: rgba(154, 164, 178, 0.12); color: var(--dim); border-color: var(--border); }
+    #badge.is-off::before { animation: none; }
+    @keyframes blink { 50% { opacity: 0.25; } }
+    #where { color: var(--dim); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    #board { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; position: relative; }
+    .team { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 8px; min-height: 0; min-width: 0; }
+    .team.a { background: radial-gradient(circle at 50% 60%, rgba(140, 226, 58, 0.13), transparent 60%); --c: var(--a); }
+    .team.b { background: radial-gradient(circle at 50% 60%, rgba(255, 59, 59, 0.14), transparent 60%); --c: var(--b); border-left: 1px solid var(--border); }
+    .top { width: 100%; text-align: center; padding: 0 44px; }
+    .tname { font-weight: 800; font-size: clamp(14px, 3.6vmin, 26px); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tmeta { margin-top: 3px; font-weight: 800; color: var(--c); font-size: clamp(12px, 3vmin, 20px); letter-spacing: 0.6px; }
+    .ball { position: absolute; top: 8px; width: clamp(28px, 6vmin, 48px); height: clamp(28px, 6vmin, 48px); border-radius: 50%;
+      background: radial-gradient(circle at 32% 28%, #f9ffb0, #d7e600 55%, #9aa800 100%); box-shadow: 0 0 16px rgba(215, 230, 0, 0.85);
+      opacity: 0; transform: scale(0.5); transition: opacity 0.2s, transform 0.2s; }
+    .team.a .ball { left: 10px; } .team.b .ball { right: 10px; }
+    .ball.on { opacity: 1; transform: scale(1); }
+    .tpoint { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; text-align: center;
+      font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--c);
+      font-size: min(70vh, 40vw); text-shadow: 0 0 46px color-mix(in srgb, var(--c) 40%, transparent); }
+    .tpoint.long { font-size: min(18vh, 8vw); line-height: 1.05; }
+
+    #tb { display: none; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 3; padding: 5px 16px;
+      border-radius: 20px; background: var(--a); color: #0b0e13; font-weight: 800; font-size: 12px; letter-spacing: 0.5px; }
+    #sets { flex: none; text-align: center; padding: 8px 14px calc(10px + env(safe-area-inset-bottom)); color: var(--dim);
+      font-size: clamp(13px, 3vmin, 20px); font-weight: 800; letter-spacing: 1px; min-height: 36px; }
+    #sets b { color: var(--text); margin: 0 8px; }
+
+    #msg { position: absolute; inset: 0; z-index: 30; display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; text-align: center; padding: 30px; background: var(--bg); font-weight: 800; font-size: 22px; }
+    #msg small { color: var(--dim); font-size: 14px; }
+
+    #win { position: absolute; z-index: 9; display: none; top: 0; bottom: 0; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; text-align: center; background: rgba(8, 10, 14, 0.94); pointer-events: none; text-shadow: 0 0 40px currentColor; }
+    #win.on { display: flex; animation: pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+    #win .t { font-weight: 900; line-height: 1; font-size: min(26vh, 12vw); }
+    #win .s { font-weight: 800; font-size: min(7vh, 4vw); color: #fff; padding: 0 14px; }
+    #win.set .t { font-size: min(20vh, 9vw); animation: pulse 0.7s ease-in-out infinite alternate; }
+    #win.match .t { font-size: min(18vh, 8vw); animation: pulse 0.5s ease-in-out infinite alternate; }
+    @keyframes pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes pulse { to { transform: scale(1.07); } }
+    #fx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+
+    /* Celular en vertical: una pareja arriba y otra abajo */
+    @media (orientation: portrait) {
+      #board { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+      .team.b { border-left: 0; border-top: 1px solid var(--border); }
+      .tpoint { font-size: min(34vh, 60vw); }
+      .tpoint.long { font-size: min(11vh, 15vw); }
+      .top { padding: 0 56px; }
+    }
+    #foot { position: absolute; right: 10px; bottom: calc(4px + env(safe-area-inset-bottom)); font-size: 10px; color: #4d5766; z-index: 2; }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <span id="badge">EN VIVO</span>
+    <span id="where"></span>
+  </div>
+
+  <main id="board">
+    <div id="tb"></div>
+    <section class="team a">
+      <span class="ball" id="ball-a"></span>
+      <div class="top"><div class="tname" id="name-a">—</div><div class="tmeta" id="meta-a"></div></div>
+      <div class="tpoint" id="point-a">0</div>
+    </section>
+    <section class="team b">
+      <span class="ball" id="ball-b"></span>
+      <div class="top"><div class="tname" id="name-b">—</div><div class="tmeta" id="meta-b"></div></div>
+      <div class="tpoint" id="point-b">0</div>
+    </section>
+    <div id="win"><div class="t" id="win-t"></div><div class="s" id="win-s"></div></div>
+  </main>
+  <div id="sets"></div>
+  <canvas id="fx"></canvas>
+  <div id="foot">Z-SCORE LITE</div>
+  <div id="msg"><div id="msg-t">Conectando…</div><small id="msg-s"></small></div>
+
+  <script type="module">
+    import { createFx } from './js/fx.js';
+
+    const COLOR = { A: '#8ce23a', B: '#ff3b3b' };
+    const $ = (id) => document.getElementById(id);
+    const code = (new URLSearchParams(location.search).get('c') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const fx = createFx($('fx'));
+    fx.resize();
+    window.addEventListener('resize', () => fx.resize());
+
+    let last = null;
+    let timers = [];
+    let lastUpdate = 0;
+    let pollTimer = null;
+    let source = null;
+
+    function showMsg(title, sub) {
+      $('msg-t').textContent = title;
+      $('msg-s').textContent = sub || '';
+      $('msg').style.display = 'flex';
+    }
+    const hideMsg = () => { $('msg').style.display = 'none'; };
+
+    function setPoint(id, text) {
+      const el = $(id);
+      el.textContent = text;
+      el.classList.toggle('long', String(text).length > 2);
+    }
+
+    function render(s) {
+      $('name-a').textContent = s.names.A;
+      $('name-b').textContent = s.names.B;
+      const d = s.display;
+      setPoint('point-a', d.pointA);
+      setPoint('point-b', d.pointB);
+      $('meta-a').textContent = `GAMES ${d.gamesA} · SETS ${d.setsA}`;
+      $('meta-b').textContent = `GAMES ${d.gamesB} · SETS ${d.setsB}`;
+      $('ball-a').classList.toggle('on', d.server === 'A');
+      $('ball-b').classList.toggle('on', d.server === 'B');
+      const tb = $('tb');
+      tb.style.display = d.inTiebreak ? 'block' : 'none';
+      tb.textContent = d.isSuperTiebreak ? 'SÚPER TIE-BREAK' : 'TIE-BREAK';
+      $('where').textContent = [s.club, s.court].filter(Boolean).join(' · ');
+      const sets = $('sets');
+      sets.replaceChildren();
+      if (s.completedSets.length) {
+        sets.append('SETS');
+        s.completedSets.forEach((x) => {
+          const b = document.createElement('b');
+          b.textContent = `${x.gamesA}-${x.gamesB}`;
+          sets.append(b);
+        });
+      }
+      const badge = $('badge');
+      if (s.ended) { badge.textContent = 'TRANSMISIÓN FINALIZADA'; badge.classList.add('is-off'); }
+      else if (s.matchOver) { badge.textContent = 'PARTIDO FINALIZADO'; badge.classList.add('is-off'); }
+      else { badge.textContent = 'EN VIVO'; badge.classList.remove('is-off'); }
+    }
+
+    // ---------- Celebraciones (igual que en el marcador) ----------
+    function clearCelebration() {
+      timers.forEach(clearTimeout); timers = [];
+      $('win').classList.remove('on'); fx.clear();
+    }
+    const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+
+    function centerOf(team) {
+      const r = $(team === 'A' ? 'point-a' : 'point-b').getBoundingClientRect();
+      const c = $('fx').getBoundingClientRect();
+      return { x: r.left - c.left + r.width / 2, y: r.top - c.top + r.height / 2 };
+    }
+
+    function sparks(team, kind) {
+      const { x, y } = centerOf(team);
+      const colors = [COLOR[team], '#ffffff', team === 'A' ? '#d7e600' : '#ffb347'];
+      if (kind === 'game') {
+        fx.burst(x, y, { colors, count: 140, speed: 9, life: 1300, size: 4.4 });
+        fx.later(170, () => fx.burst(x, y, { colors, count: 80, speed: 5.5, life: 1000, size: 4 }));
+      } else {
+        [0, 220, 440].forEach((d, i) => fx.later(d, () => fx.burst(x, y, { colors, count: 200, speed: 11 + i * 2, life: 1700, size: 5 })));
+      }
+    }
+
+    function celebrate(kind, winner, s) {
+      clearCelebration();
+      fx.resize();
+      const win = $('win');
+      $('win-t').textContent = kind === 'game' ? 'GANÓ' : kind === 'set' ? 'GANÓ EL SET' : 'GANÓ EL PARTIDO';
+      $('win-s').textContent = kind === 'game' ? '' : s.names[winner];
+      win.className = `on ${kind}`;
+      win.style.color = COLOR[winner];
+      const portrait = matchMedia('(orientation: portrait)').matches;
+      if (kind === 'game') {
+        // el cartel cubre solo la mitad del ganador
+        win.style.left = portrait ? '0' : (winner === 'A' ? '0' : '50%');
+        win.style.right = portrait ? '0' : (winner === 'A' ? '50%' : '0');
+        win.style.top = portrait ? (winner === 'A' ? '0' : '50%') : '0';
+        win.style.bottom = portrait ? (winner === 'A' ? '50%' : '0') : '0';
+      } else {
+        win.style.left = '0'; win.style.right = '0'; win.style.top = '0'; win.style.bottom = '0';
+      }
+      const hold = kind === 'game' ? 1700 : kind === 'set' ? 2800 : 4200;
+      if (kind === 'match') {
+        const { w, h } = fx.size();
+        const colors = [COLOR[winner], '#ffffff', '#ffd23f'];
+        for (let i = 0; i < 12; i++) fx.later(i * 320, () => fx.burst(w * (0.1 + Math.random() * 0.8), h * (0.15 + Math.random() * 0.45), { colors, count: 170, speed: 10, life: 1700, size: 4.6 }));
+        fx.confetti({ colors, duration: 5200, perTick: 6 });
+      }
+      later(hold, () => { win.classList.remove('on'); sparks(winner, kind); });
+    }
+
+    function detect(s) {
+      const prev = last;
+      last = s;
+      if (!prev) return;
+      if (s.matchOver && !prev.matchOver) celebrate('match', s.winner, s);
+      else if (s.counts.sets > prev.counts.sets) celebrate('set', s.lastSetWinner, s);
+      else if (s.counts.games > prev.counts.games) celebrate('game', s.lastGameWinner, s);
+      else if (s.counts.games < prev.counts.games) clearCelebration();
+    }
+
+    function apply(s) {
+      if (s.waiting) { showMsg('Esperando el primer tanto…', `Transmisión ${code}`); return; }
+      hideMsg();
+      lastUpdate = Date.now();
+      render(s);
+      detect(s);
+    }
+
+    // ---------- Conexión: en vivo (SSE) y, si falla, consulta cada 3 s ----------
+    async function poll() {
+      try {
+        const res = await fetch(`/api/live/${code}`, { cache: 'no-store' });
+        if (res.status === 404) { showMsg('Transmisión no encontrada', 'Puede haber terminado. Pedí el link de nuevo.'); return; }
+        apply(await res.json());
+      } catch (e) { /* sin red: se reintenta */ }
+    }
+
+    function connect() {
+      if (!code) { showMsg('Falta el código del partido', 'Abrí el link que te compartieron.'); return; }
+      poll();
+      if (!('EventSource' in window)) { pollTimer = setInterval(poll, 3000); return; }
+      source = new EventSource(`/api/live/${code}/stream`);
+      source.onmessage = (e) => { try { apply(JSON.parse(e.data)); } catch (err) { /* dato inválido */ } };
+      source.onerror = () => {
+        // El navegador reintenta solo; mientras tanto se consulta cada 3 s.
+        if (!pollTimer) pollTimer = setInterval(poll, 3000);
+      };
+      source.onopen = () => { clearInterval(pollTimer); pollTimer = null; };
+    }
+
+    // Si la pestaña estuvo dormida, al volver se refresca el estado.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+
+    try { navigator.wakeLock?.request('screen'); } catch (e) { /* no soportado */ }
+    connect();
+  </script>
+</body>
+</html>

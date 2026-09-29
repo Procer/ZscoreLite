@@ -99,6 +99,7 @@
     <div class="sheet">
       <h2>Partido en curso</h2>
       <button class="btn btn-ghost btn-block" data-action="undo-point">↩ Deshacer último tanto</button>
+      <button class="btn btn-ghost btn-block" data-action="open-live">📡 Compartir en vivo</button>
       <button class="btn btn-ghost btn-block" data-action="pause-match">⏸ Pausar y volver al inicio</button>
       <button class="btn btn-danger btn-block" data-action="end-match">Finalizar partido</button>
       <button class="btn btn-ghost btn-block" data-action="close-menu">Volver al marcador</button>
@@ -131,6 +132,11 @@
     </div>
     <div id="history-list"></div>
   </section>
+
+  <!-- PARTIDO EN VIVO -->
+  <div class="overlay" id="overlay-live">
+    <div class="sheet" id="live-content"></div>
+  </div>
 
   <!-- EDITAR JUGADOR -->
   <div class="overlay" id="overlay-player-edit">
