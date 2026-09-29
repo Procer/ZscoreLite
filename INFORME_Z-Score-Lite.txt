@@ -1,0 +1,130 @@
+=====================================================================
+ Z-SCORE LITE - INFORME DE LA APLICACIÓN
+ Versión 1.4 - 29/09/2026
+ Zarate System Group (ZSG) - www.zscore.ar
+=====================================================================
+
+QUÉ ES
+------
+Un marcador de pádel para canchas. Funciona como app Android (APK) y
+también desde el navegador. Sirve para llevar el tanteo, dar el
+resultado en voz, guardar el historial y armar un ranking interno de
+jugadores y parejas.
+
+En producción: https://zscorelite.anka.ar
+Código: https://github.com/Procer/ZscoreLite (rama main)
+
+
+DURANTE EL PARTIDO
+------------------
+* Preparación guiada:
+    - Formato: a sets o a games.
+    - Reglas: mejor de 1, 3 o 5, punto de oro y súper tie-break decisivo.
+    - Jugadores: se eligen de una lista guardada.
+    - Voz: completa, simple o apagada.
+
+* Marcador en pantalla horizontal:
+    - Los tantos son gigantes. La pareja de la izquierda va en verde y
+      la de la derecha en rojo.
+    - Cada lado muestra nombres, games y sets. La pelota marca quién saca.
+    - Aviso de tie-break, pantalla siempre encendida y botones para
+      restar un tanto.
+
+* Control remoto Bluetooth:
+    El control tiene dos botones físicos, pero mandan exactamente la
+    misma señal. Por eso se usa un solo botón con gestos:
+        1 toque   -> suma al lado configurado
+        2 toques  -> suman al otro lado
+        3 toques  -> deshacen el último tanto
+    El primer gesto del partido elige quién saca.
+    En pantalla se ve cuántos toques contó y qué va a pasar, con una
+    cuenta regresiva. Además suena un pitido y vibra.
+
+* Voz: anuncia cada tanto, cada game, cada set y el ganador del partido.
+
+* Celebraciones: al ganar un game aparece GANÓ con el color del equipo
+  y saltan chispas del número. En el set son más grandes. Al ganar el
+  partido hay fuegos artificiales y confeti.
+
+
+DESPUÉS DEL PARTIDO
+-------------------
+* Historial: cada partido es un tablero con los sets. El detalle trae
+  estadísticas (quiebres de saque, tantos ganados, efectividad al saque,
+  racha más larga). Se puede copiar como imagen para pegar en WhatsApp.
+
+* Ranking interno de parejas y de jugadores:
+    - Ganar suma 3 puntos y jugar suma 1.
+    - Filtro: todo, este mes, mes anterior o este año.
+    - Rachas, y contra quién ganó y perdió cada uno.
+    - Estadísticas: tantos ganados al saque, al resto y en tie-break.
+    - El ranking también se copia como imagen.
+
+* Mantenimiento: renombrar o fusionar jugadores y eliminar partidos
+  cargados por error.
+
+
+PARA EL CLUB
+------------
+* Configuración: ventana de toques del control, lado del primer toque,
+  sonido, vibración, alto contraste para sol directo y tamaño de la
+  pelota de saque.
+
+* Copia de seguridad: se exporta como archivo por el menú de compartir
+  del celular y se importa después.
+
+* Partido en vivo: genera un link y un código QR. El público lo abre
+  desde su celular, sin instalar nada, y ve el marcador en tiempo real
+  con las mismas celebraciones. Se activa desde el menú del marcador o
+  automáticamente en Configuración.
+
+* PIN de acceso de 4 dígitos para abrir la app.
+
+
+CÓMO ESTÁ ARMADA
+----------------
+* Los datos (partidos, jugadores, ajustes) viven en el celular. No hay
+  cuentas ni servidor de datos.
+* El único servidor es el del partido en vivo: guarda solo el estado del
+  marcador y lo borra a las 8 horas sin novedades.
+* La app funciona en la cancha sin internet. Solo el partido en vivo la
+  necesita.
+* El APK carga la web desde el servidor: los cambios de la web llegan
+  solos; solo los cambios nativos piden un APK nuevo.
+
+
+LÍMITES QUE CONVIENE SABER
+--------------------------
+* El historial está solo en cada celular; la copia de seguridad es manual.
+* iPhone: funciona desde el navegador, pero no puede usar el control
+  remoto (iOS no deja capturar las teclas de volumen) ni el APK.
+* Saque por jugador: se sabe qué pareja saca, no qué jugador. Las
+  estadísticas de saque de cada jugador son las de su pareja.
+* El PIN es una traba local, no seguridad real.
+* SIN CONTROL DE PAGO: hoy el APK y la web son públicos; cualquiera con
+  el link puede usarlos.
+* Varias cosas de las últimas tandas se probaron en el navegador y NO
+  en el celular: sonido, vibración, copiar el link del partido en vivo
+  y la copia de seguridad. Conviene probarlas.
+
+
+PENDIENTE PARA LA PRÓXIMA SESIÓN
+--------------------------------
+TEMA: entregar la app (link de descarga) SOLO a quien haya pagado.
+
+Ojo: no alcanza con esconder el APK. La web completa
+(https://zscorelite.anka.ar) también funciona sin instalar nada. Hay
+que decidir si también se protege la web, por ejemplo con una clave de
+licencia que la app valide al abrir (tolerante a la falta de internet).
+
+Preguntas para decidir:
+  - ¿Cómo se cobra? (Mercado Pago, transferencia, suscripción)
+  - ¿Precio por club, por cancha o por dispositivo?
+  - ¿Solo un link de descarga o también una clave de licencia?
+  - ¿Cuántos dispositivos por club? ¿Se puede revocar?
+  - ¿Flujo semiautomático (yo confirmo el pago y genero el link) o
+    automático (el pago genera el link solo)?
+  - ¿Seguimos con APK de debug o pasamos a un APK firmado de release /
+    Google Play?
+
+=====================================================================
