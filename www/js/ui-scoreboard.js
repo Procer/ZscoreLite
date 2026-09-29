@@ -16,7 +16,10 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   let clockInterval = null;
   let matchStartTime = null;
   let unsubscribeRemote = null;
-  const REMOTE_TAP_WINDOW_MS = 600;
+  // Los dos botones del control mandan la misma tecla y el usuario aprieta a
+  // ~0.6-1s entre toques; con 600ms un doble toque normal se leía como dos
+  // toques sueltos (y a 40-30 el segundo daba el game al equipo equivocado).
+  const REMOTE_TAP_WINDOW_MS = 900;
   let remoteTapCount = 0;
   let remoteTapTimer = null;
 
@@ -33,6 +36,8 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     const setsWonB = state.completedSets.filter((s) => s.gamesB > s.gamesA).length;
     document.getElementById('sets-a').textContent = setsWonA;
     document.getElementById('sets-b').textContent = setsWonB;
+
+    document.getElementById('serve-hint').style.display = state.display.server ? 'none' : '';
 
     const banner = document.getElementById('tiebreak-banner');
     banner.style.display = state.display.inTiebreak ? '' : 'none';
@@ -89,9 +94,10 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     // Control remoto de UN solo botón efectivo: los dos botones físicos del
     // control (iOS/Android) mandan exactamente el mismo código HID, así que no
     // se pueden distinguir. Se cuentan los toques dentro de una ventana corta:
-    // 1 toque -> tanto para A, 2 toques -> tanto para B, 3 toques -> deshacer
-    // el último tanto. La decisión se toma al vencer la ventana, por eso hay
-    // una pequeña demora antes de que se refleje el tanto.
+    // 1 toque -> lado izquierdo (A), 2 toques -> lado derecho (B), 3 toques ->
+    // deshacer el último tanto. La decisión se toma al vencer la ventana, por
+    // eso hay una pequeña demora antes de que se refleje el tanto.
+    // Antes del primer tanto, el gesto elige quién saca (sin sumar tanto).
     remoteTapCount = 0;
     unsubscribeRemote = onRemotePress(() => {
       if (!controller) return;
@@ -101,6 +107,12 @@ export function initScoreboard({ onMatchFinished, onPause }) {
         const taps = remoteTapCount;
         remoteTapCount = 0;
         if (!controller) return;
+        const choosingServer = !controller.getState().state.display.server;
+        if (choosingServer) {
+          if (taps === 1) controller.setFirstServer('A');
+          else if (taps === 2) controller.setFirstServer('B');
+          return;
+        }
         if (taps === 1) controller.addPoint('A');
         else if (taps === 2) controller.addPoint('B');
         else if (taps >= 3) controller.undo();

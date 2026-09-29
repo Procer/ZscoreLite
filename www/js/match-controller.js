@@ -87,6 +87,16 @@ export function createMatchController(meta, resumeEvents) {
     notify();
   }
 
+  /** Define quién saca el primer game, sin sumar tanto. Solo vale antes del
+   * primer tanto. No se persiste acá: se guarda con el primer tanto (config
+   * ya lleva firstServer), así no queda un partido "en curso" vacío. */
+  function setFirstServer(team) {
+    if (events.length) return;
+    config.firstServer = team;
+    state = replayMatch(config, events);
+    notify();
+  }
+
   function undo() {
     if (events.length === 0) return;
     events.pop();
@@ -128,7 +138,7 @@ export function createMatchController(meta, resumeEvents) {
     return () => listeners.delete(cb);
   }
 
-  return { addPoint, undo, undoLastForTeam, finalizeAndSave, getState, subscribe, teamNames, config };
+  return { addPoint, setFirstServer, undo, undoLastForTeam, finalizeAndSave, getState, subscribe, teamNames, config };
 }
 
 /** Reconstruye un controlador a partir de un partido guardado en curso. */

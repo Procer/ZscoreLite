@@ -13,7 +13,7 @@ function escapeHtml(s) {
 const STEP_ORDER = [
   'mode', 'bestof', 'gamesperset', 'targetgames', 'noad', 'supertiebreak',
   'player-a1', 'player-a2', 'player-b1', 'player-b2',
-  'category', 'voice', 'summary',
+  'voice', 'summary',
 ];
 
 function isRelevant(id, w) {
@@ -44,7 +44,6 @@ export function initSetupWizard(onStartMatch) {
       noAd: true,
       superTiebreak: false,
       teams: { A: { p1: '', p2: '' }, B: { p1: '', p2: '' } },
-      category: '',
       voiceLevel: 'full',
     };
   }
@@ -223,11 +222,6 @@ export function initSetupWizard(onStartMatch) {
         savePlayerName(name).then(() => listPlayerNames()).then((list) => { playersCache = list; });
         goNext();
       }, exclude);
-    } else if (id === 'category') {
-      renderText('¿Categoría?', 'Opcional', wizard.category, { optional: true }, (val) => {
-        wizard.category = val;
-        goNext();
-      });
     } else if (id === 'voice') {
       renderChoice('¿Anuncio por voz?', null, [
         { value: 'full', title: 'Completo', sub: 'Tanto a tanto, estilo árbitro' },
@@ -252,9 +246,8 @@ export function initSetupWizard(onStartMatch) {
       <div class="summary-card">
         <div class="summary-card-row"><strong>${escapeHtml(teamPreview('A'))}</strong> vs <strong>${escapeHtml(teamPreview('B'))}</strong></div>
         <div class="summary-card-row muted">${escapeHtml(describeConfig(cfg))}</div>
-        ${wizard.category ? `<div class="summary-card-row muted">${escapeHtml(wizard.category)}</div>` : ''}
-        <div class="summary-card-row muted">El saque inicial lo define el primer tanto que toques en el marcador.</div>
-        <div class="summary-card-row muted">Control remoto: 1 toque suma a la Pareja A, 2 toques a la Pareja B, 3 toques deshace el último tanto.</div>
+        <div class="summary-card-row muted">Al empezar, el primer toque elige quién saca. Después suma tantos.</div>
+        <div class="summary-card-row muted">Control remoto: 1 toque = lado izquierdo, 2 toques = lado derecho, 3 toques = deshacer el último tanto.</div>
       </div>
       <div class="toggle-row">
         <div>
@@ -278,7 +271,6 @@ export function initSetupWizard(onStartMatch) {
         sport: 'padel',
         config: buildConfig(),
         teams: wizard.teams,
-        category: wizard.category,
         voiceLevel: wizard.voiceLevel,
       };
       onStartMatch(meta);
