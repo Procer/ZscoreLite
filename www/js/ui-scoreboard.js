@@ -16,8 +16,9 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   let clockInterval = null;
   let matchStartTime = null;
   let unsubscribeRemote = null;
-  const DOUBLE_PRESS_WINDOW_MS = 700;
-  let lastRemotePressAt = { A: 0, B: 0 };
+  const REMOTE_TAP_WINDOW_MS = 600;
+  let remoteTapCount = 0;
+  let remoteTapTimer = null;
 
   function render(state, teamNames) {
     document.getElementById('name-a').textContent = teamNames.A;
@@ -66,6 +67,8 @@ export function initScoreboard({ onMatchFinished, onPause }) {
   function teardown() {
     if (unsubscribe) unsubscribe();
     if (unsubscribeRemote) unsubscribeRemote();
+    clearTimeout(remoteTapTimer);
+    remoteTapCount = 0;
     if (clockInterval) clearInterval(clockInterval);
     unsubscribe = null;
     unsubscribeRemote = null;
@@ -83,34 +86,25 @@ export function initScoreboard({ onMatchFinished, onPause }) {
     clockInterval = setInterval(tick, 1000);
     tick();
 
-    // Mapeo del control remoto: botón "foto" -> Pareja A, botón "video" -> Pareja B.
-    // Es una convención razonable dado que no hay forma estándar de identificar
-    // qué botón físico dispara cada evento; puede ajustarse una vez probado en
-    // el dispositivo real.
-    // Un solo click suma un tanto. Dos clicks seguidos (menos de 450ms) del
-    // MISMO botón restan el último tanto de ESE equipo, aunque el otro equipo
-    // haya anotado después. No usamos "mantener presionado" porque estos
-    // controles suelen mandar un clic instantáneo, sin estado de "sostenido".
-    lastRemotePressAt = { A: 0, B: 0 };
-    unsubscribeRemote = onRemotePress((source) => {
+    // Control remoto de UN solo botón efectivo: los dos botones físicos del
+    // control (iOS/Android) mandan exactamente el mismo código HID, así que no
+    // se pueden distinguir. Se cuentan los toques dentro de una ventana corta:
+    // 1 toque -> tanto para A, 2 toques -> tanto para B, 3 toques -> deshacer
+    // el último tanto. La decisión se toma al vencer la ventana, por eso hay
+    // una pequeña demora antes de que se refleje el tanto.
+    remoteTapCount = 0;
+    unsubscribeRemote = onRemotePress(() => {
       if (!controller) return;
-      let side = null;
-      if (source.includes('volumeup') || source.includes('nexttrack') || source === 'native:shutter' || source === 'simulated') {
-        side = 'A';
-      } else if (source.includes('volumedown') || source.includes('previoustrack')) {
-        side = 'B';
-      }
-      if (!side) return;
-
-      const now = Date.now();
-      const isDoublePress = now - lastRemotePressAt[side] < DOUBLE_PRESS_WINDOW_MS;
-      if (isDoublePress) {
-        lastRemotePressAt[side] = 0;
-        controller.undoLastForTeam(side);
-      } else {
-        lastRemotePressAt[side] = now;
-        controller.addPoint(side);
-      }
+      remoteTapCount += 1;
+      clearTimeout(remoteTapTimer);
+      remoteTapTimer = setTimeout(() => {
+        const taps = remoteTapCount;
+        remoteTapCount = 0;
+        if (!controller) return;
+        if (taps === 1) controller.addPoint('A');
+        else if (taps === 2) controller.addPoint('B');
+        else if (taps >= 3) controller.undo();
+      }, REMOTE_TAP_WINDOW_MS);
     });
   }
 

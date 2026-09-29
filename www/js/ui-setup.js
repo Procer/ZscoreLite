@@ -254,6 +254,7 @@ export function initSetupWizard(onStartMatch) {
         <div class="summary-card-row muted">${escapeHtml(describeConfig(cfg))}</div>
         ${wizard.category ? `<div class="summary-card-row muted">${escapeHtml(wizard.category)}</div>` : ''}
         <div class="summary-card-row muted">El saque inicial lo define el primer tanto que toques en el marcador.</div>
+        <div class="summary-card-row muted">Control remoto: 1 toque suma a la Pareja A, 2 toques a la Pareja B, 3 toques deshace el último tanto.</div>
       </div>
       <div class="toggle-row">
         <div>
