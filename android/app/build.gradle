@@ -16,8 +16,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Clave de release: vive FUERA del repo (C:\Users\<usuario>\zscore-keys). Hay que firmar SIEMPRE con la misma.
+    def keyProps = new Properties()
+    def keyPropsFile = new File(System.getProperty('user.home'), 'zscore-keys/keystore.properties')
+    if (keyPropsFile.exists()) {
+        keyPropsFile.withInputStream { keyProps.load(it) }
+        signingConfigs {
+            release {
+                storeFile file(keyProps['storeFile'])
+                storePassword keyProps['storePassword']
+                keyAlias keyProps['keyAlias']
+                keyPassword keyProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keyPropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
