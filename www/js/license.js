@@ -207,7 +207,7 @@ export async function checkUpdate() {
   const r = await post('version', { token: saved.token, device: saved.device });
   if (!r.ok) return null;
   if (!(r.versionCode > installed)) return null;
-  return { versionName: r.versionName, url: r.url };
+  return { versionName: r.versionName, notes: Array.isArray(r.notes) ? r.notes : [], url: r.url };
 }
 
 export function openDownload(url) {

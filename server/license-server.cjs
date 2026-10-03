@@ -166,7 +166,9 @@ function version(body, ip, res) {
 
   if (outcome.error) return fail(res, ip, outcome.error, { count: outcome.count !== false });
   if (outcome.none) return send(res, 200, { versionCode: null });
-  return send(res, 200, { versionName: meta.versionName, versionCode: meta.versionCode, url: outcome.url });
+  return send(res, 200, {
+    versionName: meta.versionName, versionCode: meta.versionCode, notes: meta.notes || [], url: outcome.url,
+  });
 }
 
 async function handle(req, res) {

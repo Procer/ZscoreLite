@@ -118,7 +118,9 @@ con un link personal (vence, tiene tope de descargas y solo sirve si la licencia
 ```bash
 # Publicar (o actualizar) el APK vigente. El nombre y el código salen de android/app/build.gradle
 # (versionName / versionCode); el APK de release es android/app/build/outputs/apk/release/app-release.apk
-node license-admin.cjs publicar-apk /ruta/app-release.apk --nombre 1.5 --codigo 6
+node license-admin.cjs publicar-apk /ruta/app-release.apk --nombre 1.5 --codigo 6 \
+  --notas "Qué cambia 1|Qué cambia 2|Qué cambia 3"
+# --notas: las novedades que el cliente lee antes de actualizar (líneas separadas con |, hasta 10, texto plano)
 
 # Link personal para mandar por WhatsApp (por defecto 48 h y 3 descargas)
 node license-admin.cjs link ZSL-XXXX-XXXX [--horas 48] [--usos 3]

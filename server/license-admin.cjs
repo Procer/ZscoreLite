@@ -8,7 +8,7 @@
 //   node license-admin.cjs revocar ZSL-XXXX-XXXX           corta el acceso (en la próxima renovación de la app)
 //   node license-admin.cjs reactivar ZSL-XXXX-XXXX         deshace una revocación
 //   node license-admin.cjs resetear ZSL-XXXX-XXXX          libera el dispositivo (cambio de celular)
-//   node license-admin.cjs publicar-apk RUTA.apk --nombre 1.5 --codigo 6   sube el APK vigente (nombre y versionCode de build.gradle)
+//   node license-admin.cjs publicar-apk RUTA.apk --nombre 1.5 --codigo 6 [--notas "Novedad 1|Novedad 2"]   sube el APK vigente (nombre y versionCode de build.gradle)
 //   node license-admin.cjs link ZSL-XXXX-XXXX [--horas 48] [--usos 3]      link personal de descarga para mandar por WhatsApp
 //
 // Valores por defecto: paga = 30 días, prueba = 14 días, cortesia = sin vencimiento.
@@ -143,9 +143,12 @@ switch (cmd) {
     fs.mkdirSync(lib.APK_DIR, { recursive: true });
     fs.copyFileSync(src, lib.APK_FILE);
     const sha256 = crypto.createHash('sha256').update(fs.readFileSync(lib.APK_FILE)).digest('hex');
-    const meta = { versionName: flags.nombre, versionCode, sha256, publishedAt: Date.now() };
+    // Novedades que ve el cliente antes de actualizar: "Una cosa|Otra cosa|..." (hasta 10 líneas)
+    const notes = String(flags.notas || '').split('|').map((n) => n.trim().slice(0, 200)).filter(Boolean).slice(0, 10);
+    const meta = { versionName: flags.nombre, versionCode, notes, sha256, publishedAt: Date.now() };
     fs.writeFileSync(lib.APK_META_FILE, JSON.stringify(meta, null, 2));
     console.log(`APK ${meta.versionName} (código ${versionCode}) publicado. sha256 ${sha256}`);
+    console.log(notes.length ? `Novedades:\n${notes.map((n) => `  - ${n}`).join('\n')}` : 'Sin novedades cargadas (agregá --notas "Una cosa|Otra cosa").');
     break;
   }
   case 'link': {

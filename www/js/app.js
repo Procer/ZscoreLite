@@ -297,7 +297,23 @@ async function refreshUpdateBanner() {
   if (pendingUpdate) el.querySelector('span').textContent = `Hay una versión nueva (${pendingUpdate.versionName}).`;
 }
 
+function openUpdateSheet() {
+  if (!pendingUpdate) return;
+  document.getElementById('update-title').textContent = `Versión ${pendingUpdate.versionName}`;
+  const list = document.getElementById('update-notes');
+  list.replaceChildren(...(pendingUpdate.notes.length ? pendingUpdate.notes : ['Mejoras y correcciones.']).map((n) => {
+    const li = document.createElement('li');
+    li.textContent = n; // textContent: las novedades vienen del servidor, nunca como HTML
+    return li;
+  }));
+  document.getElementById('overlay-update').classList.add('is-active');
+}
+
 function initLicenseUi() {
+  document.getElementById('update-open').addEventListener('click', openUpdateSheet);
+  document.getElementById('update-later').addEventListener('click', () => {
+    document.getElementById('overlay-update').classList.remove('is-active');
+  });
   document.getElementById('update-download').addEventListener('click', () => {
     if (pendingUpdate) openDownload(pendingUpdate.url);
   });

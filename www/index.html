@@ -46,7 +46,7 @@
     <div class="home-title">Z-Score <strong>Lite</strong></div>
     <div class="license-banner" id="license-banner" style="display:none;"></div>
     <div class="license-banner license-banner--update" id="update-banner" style="display:none;">
-      <span></span> <button class="btn-link" id="update-download">Descargar</button>
+      <span></span> <button class="btn-link" id="update-open">Ver novedades</button>
     </div>
     <div class="home-actions">
       <button class="btn btn-primary btn-block" data-action="go-setup">Nuevo partido</button>
@@ -60,6 +60,17 @@
       <a href="https://www.zaratesystemgroup.com.ar" target="_blank" rel="noopener">Creado por ZSG</a>
     </div>
   </section>
+
+  <!-- NOVEDADES DE LA ACTUALIZACIÓN -->
+  <div class="overlay" id="overlay-update">
+    <div class="sheet">
+      <h2 id="update-title">Versión nueva</h2>
+      <p>Qué cambia en esta versión:</p>
+      <ul class="update-notes" id="update-notes"></ul>
+      <button class="btn btn-primary btn-block" id="update-download">Descargar actualización</button>
+      <button class="btn btn-ghost btn-block" id="update-later">Ahora no</button>
+    </div>
+  </div>
 
   <!-- RETOMAR PARTIDO -->
   <div class="overlay" id="overlay-resume">
