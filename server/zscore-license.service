@@ -1,0 +1,27 @@
+[Unit]
+Description=Z-Score Lite - licencias
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+Environment=PORT=3721
+Environment=HOST=127.0.0.1
+Environment=DATA_DIR=/var/www/zscore/license-data
+Environment=PRIVATE_KEY_FILE=/var/www/zscore/license-data/license-private.pem
+WorkingDirectory=/var/www/zscore/license-server
+ExecStart=/usr/bin/node /var/www/zscore/license-server/license-server.cjs
+Restart=always
+RestartSec=3
+
+# Aislamiento: solo puede escribir en su carpeta de datos
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/zscore/license-data
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

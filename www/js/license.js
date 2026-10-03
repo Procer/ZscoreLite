@@ -26,6 +26,7 @@ const ERROR_TEXT = {
   en_uso: 'Ese código ya está activado en otro dispositivo.',
   vencida: 'Esa licencia está vencida.',
   revocada: 'Esa licencia fue dada de baja.',
+  demasiados: 'Demasiados intentos. Probá de nuevo en una hora.',
   red: 'No hay conexión con el servidor. Probá de nuevo con internet.',
 };
 

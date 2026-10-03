@@ -63,3 +63,49 @@ envío, 400 espectadores conectados a la vez (12 por IP).
 PORT=3722 DATA_DIR=./data STATIC_DIR=../www node live-server.cjs
 # abrir http://127.0.0.1:3722/
 ```
+
+---
+
+# Servicio de licencias
+
+`license-server.cjs` (el servicio), `license-lib.cjs` (código compartido) y
+`license-admin.cjs` (comando para crear y administrar licencias). Contrato con
+la app: `www/js/license.js`. Escucha solo en `127.0.0.1:3721`; no usa PM2.
+
+| Qué | Dónde |
+|---|---|
+| Código | `/var/www/zscore/license-server/` (los tres `license-*.cjs`) |
+| Datos: `licenses.json` y la clave PRIVADA `license-private.pem` | `/var/www/zscore/license-data/` (sin acceso web, modo 700) |
+| Servicio systemd | `/etc/systemd/system/zscore-license.service` |
+| Bloque de nginx (solo `/api/license`) | `/etc/nginx/sites-available/zscorelite.anka.ar` |
+
+## Instalación
+
+```bash
+mkdir -p /var/www/zscore/license-server /var/www/zscore/license-data
+cp license-server.cjs license-lib.cjs license-admin.cjs /var/www/zscore/license-server/
+# la clave privada se copia a mano desde C:\Users\<usuario>\zscore-keys\license-private.pem (NUNCA al repo)
+cp license-private.pem /var/www/zscore/license-data/
+chown -R www-data:www-data /var/www/zscore/license-server /var/www/zscore/license-data
+chmod 700 /var/www/zscore/license-data && chmod 600 /var/www/zscore/license-data/license-private.pem
+
+cp zscore-license.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now zscore-license
+# nginx: agregar el bloque de nginx-license.conf, luego: nginx -t && systemctl reload nginx
+```
+
+## Uso diario (en el VPS)
+
+```bash
+cd /var/www/zscore/license-server
+export DATA_DIR=/var/www/zscore/license-data
+sudo -E -u www-data node license-admin.cjs crear --tipo paga --dias 30 --nota "Club Ejemplo"
+sudo -E -u www-data node license-admin.cjs crear --tipo cortesia --nota "Juan"
+sudo -E -u www-data node license-admin.cjs listar
+sudo -E -u www-data node license-admin.cjs extender ZSL-XXXX-XXXX 30     # tras un pago
+sudo -E -u www-data node license-admin.cjs resetear ZSL-XXXX-XXXX        # cambio de celular
+sudo -E -u www-data node license-admin.cjs revocar ZSL-XXXX-XXXX
+```
+
+Un token dura 32 días y la app lo renueva sola; revocar o dejar vencer una
+licencia se nota cuando el token vigente de ese celular llega a su fin (+3 días de gracia).
