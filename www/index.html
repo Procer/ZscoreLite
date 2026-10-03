@@ -25,10 +25,26 @@
     <button class="btn btn-ghost" id="pin-forgot" style="margin-top:10px;">Olvidé mi PIN</button>
   </section>
 
+  <!-- LICENCIA (activación / bloqueo) -->
+  <section id="view-license" class="view">
+    <img class="home-logo home-logo--big" src="icons/icon-192.png" alt="Z-Score Lite" />
+    <div class="wizard-question" id="license-title">Activá tu licencia</div>
+    <div class="wizard-sub" id="license-sub">Escribí el código que recibiste</div>
+    <input type="text" id="license-input" class="license-input" maxlength="13" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ZSL-XXXX-XXXX" />
+    <button class="btn btn-primary" id="license-activate" style="margin-top:14px;">Activar</button>
+    <div class="license-msg" id="license-msg"></div>
+    <div class="license-extra" id="license-extra">
+      <button class="btn btn-ghost" data-action="go-history">Ver historial</button>
+      <button class="btn btn-ghost" data-action="go-settings">Copia de seguridad</button>
+      <button class="btn btn-ghost" data-action="go-home">Volver</button>
+    </div>
+  </section>
+
   <!-- HOME -->
   <section id="view-home" class="view">
     <img class="home-logo home-logo--big" src="icons/icon-192.png" alt="Z-Score Lite" />
     <div class="home-title">Z-Score <strong>Lite</strong></div>
+    <div class="license-banner" id="license-banner" style="display:none;"></div>
     <div class="home-actions">
       <button class="btn btn-primary btn-block" data-action="go-setup">Nuevo partido</button>
       <button class="btn btn-ghost btn-block" data-action="go-history">Historial y ranking</button>

@@ -1,4 +1,5 @@
 import { getSettings, saveSettings, feedbackTap, BALL_SIZES } from './settings.js';
+import { getLicense, describeLicense, renew, LICENSE_REQUIRED } from './license.js';
 import { exportBackup, importBackup, listMatches } from './db.js';
 
 function todayStamp() {
@@ -25,6 +26,25 @@ export function initSettings({ onDataChanged }) {
         <div><div style="font-weight:600;">${title}</div>${sub ? `<div class="match-card-meta">${sub}</div>` : ''}</div>
         <span class="switch"><input type="checkbox" data-toggle="${name}" ${checked ? 'checked' : ''} /><span class="switch-track"></span></span>
       </label>`;
+  }
+
+  function licenseCard() {
+    const lic = getLicense();
+    if (!lic.info) {
+      return LICENSE_REQUIRED ? '' : `
+      <div class="section-title">Licencia</div>
+      <div class="set-card">
+        <div class="match-card-meta">Esta app todavía no tiene una licencia activada.</div>
+        <button class="btn btn-ghost btn-block" data-action="go-license" style="margin-top:10px;">Activar con un código</button>
+      </div>`;
+    }
+    return `
+      <div class="section-title">Licencia</div>
+      <div class="set-card">
+        <div class="set-title">${describeLicense(lic)}</div>
+        <div class="match-card-meta">Código ${lic.info.code}</div>
+        ${lic.info.exp != null ? '<button class="btn btn-ghost btn-block" id="license-renew" style="margin-top:10px;">Renovar ahora</button>' : ''}
+      </div>`;
   }
 
   async function render() {
@@ -63,6 +83,8 @@ export function initSettings({ onDataChanged }) {
       <div class="section-title">Partido en vivo</div>
       ${toggle('liveAuto', 'Transmitir cada partido', 'Genera el link para el público apenas empieza el partido. También se puede activar desde el menú del marcador.', s.liveAuto)}
 
+      ${licenseCard()}
+
       <div class="section-title">Datos</div>
       <div class="set-card">
         <div class="set-title">Copia de seguridad</div>
@@ -98,6 +120,14 @@ export function initSettings({ onDataChanged }) {
       feedbackTap(1);
       setTimeout(() => feedbackTap(2), 450);
       setTimeout(() => feedbackTap(0), 900);
+      return;
+    }
+    if (e.target.id === 'license-renew') {
+      e.target.disabled = true;
+      e.target.textContent = 'Consultando…';
+      const ok = await renew({ force: true });
+      alert(ok ? 'Licencia renovada.' : 'No hay una renovación disponible (revisá tu conexión o el pago).');
+      render();
       return;
     }
     if (e.target.id === 'backup-export') { await doExport(); return; }

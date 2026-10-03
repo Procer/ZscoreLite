@@ -9,14 +9,19 @@ import { startLive, finishLive } from './live.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
+import { checkLicense, startLicenseWatch, onLicenseChange, isBlocked, getLicense, activate, bannerText } from './license.js';
 import { copyMatchImage, copyResultMessage } from './share-image.js';
 
-const views = ['pin', 'home', 'setup', 'scoreboard', 'summary', 'history', 'settings'];
+const views = ['pin', 'license', 'home', 'setup', 'scoreboard', 'summary', 'history', 'settings'];
 const PIN_KEY = 'zscoreLitePin';
 let lastSummaryRecord = null;
 let lastSummaryStats = null;
 
 function showView(name) {
+  // Sin licencia vigente no se puede ir al inicio ni armar partidos nuevos
+  // (sí terminar uno en curso, ver el historial y sacar la copia de seguridad).
+  if ((name === 'home' || name === 'setup') && isBlocked()) name = 'license';
+  if (name === 'license') renderLicenseView();
   views.forEach((v) => {
     document.getElementById(`view-${v}`).classList.toggle('is-active', v === name);
   });
@@ -116,6 +121,7 @@ document.addEventListener('click', (e) => {
   if (action === 'go-home') { showView('home'); return; }
   if (action === 'go-history') { history.render(); showView('history'); return; }
   if (action === 'go-settings') { settings.render(); showView('settings'); return; }
+  if (action === 'go-license') { showView('license'); return; }
   if (action === 'go-setup') { goToSetup(); return; }
   if (action === 'copy-match' && lastSummaryRecord) {
     copyMatchImage(lastSummaryRecord, lastSummaryStats).then((result) => alert(copyResultMessage(result)));
@@ -252,9 +258,60 @@ function openResumePrompt(record, { onDiscard } = {}) {
 
 showView('pin');
 initPinGate();
+checkLicense().then(renderLicenseBanner);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
+
+// ---------------- Licencia ----------------
+
+function renderLicenseView() {
+  const blocked = getLicense().status === 'blocked';
+  document.getElementById('license-title').textContent = blocked ? 'Tu licencia venció' : 'Activá tu licencia';
+  document.getElementById('license-sub').textContent = blocked
+    ? 'Renovala o activá un código nuevo para seguir usando la app'
+    : 'Escribí el código que recibiste';
+  document.getElementById('license-msg').textContent = '';
+  document.getElementById('license-extra').classList.add('is-shown');
+}
+
+function renderLicenseBanner() {
+  const lic = getLicense();
+  const el = document.getElementById('license-banner');
+  const text = bannerText(lic);
+  el.style.display = text ? '' : 'none';
+  el.textContent = text;
+  el.classList.toggle('license-banner--grace', lic.status === 'grace');
+}
+
+function initLicenseUi() {
+  const input = document.getElementById('license-input');
+  const msg = document.getElementById('license-msg');
+  const btn = document.getElementById('license-activate');
+
+  input.addEventListener('input', () => {
+    // Autoguiones: el usuario escribe solo letras y números.
+    const raw = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^ZSL/, '').slice(0, 8);
+    input.value = raw.length ? `ZSL-${raw.slice(0, 4)}${raw.length > 4 ? '-' + raw.slice(4) : ''}` : '';
+  });
+
+  btn.addEventListener('click', async () => {
+    msg.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Activando…';
+    const result = await activate(input.value);
+    btn.disabled = false;
+    btn.textContent = 'Activar';
+    if (!result.ok) { msg.textContent = result.message; return; }
+    input.value = '';
+    showView('home');
+  });
+
+  onLicenseChange(renderLicenseBanner);
+  startLicenseWatch();
+}
+
+initLicenseUi();
