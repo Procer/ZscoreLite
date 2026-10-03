@@ -19,6 +19,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import androidx.core.content.FileProvider;
+import androidx.core.content.pm.PackageInfoCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -147,6 +148,33 @@ public class MainActivity extends BridgeActivity {
                 return true;
             } catch (Exception e) {
                 Log.e(TAG, "shareText fallo", e);
+                return false;
+            }
+        }
+
+        /** versionCode del APK instalado (0 si no se puede leer). Sirve para avisar de actualizaciones. */
+        @JavascriptInterface
+        public int appVersionCode() {
+            try {
+                return (int) PackageInfoCompat.getLongVersionCode(
+                    getPackageManager().getPackageInfo(getPackageName(), 0));
+            } catch (Exception e) {
+                Log.e(TAG, "appVersionCode fallo", e);
+                return 0;
+            }
+        }
+
+        /** Abre un link https del propio servidor en el navegador del sistema (descarga del APK nuevo). */
+        @JavascriptInterface
+        public boolean openUrl(String url) {
+            try {
+                Uri uri = Uri.parse(url);
+                if (!"https".equals(uri.getScheme()) || !"zscorelite.anka.ar".equals(uri.getHost())) return false;
+                Intent view = new Intent(Intent.ACTION_VIEW, uri);
+                runOnUiThread(() -> startActivity(view));
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "openUrl fallo", e);
                 return false;
             }
         }

@@ -9,7 +9,7 @@ import { startLive, finishLive } from './live.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
-import { checkLicense, startLicenseWatch, onLicenseChange, isBlocked, getLicense, activate, bannerText } from './license.js';
+import { checkLicense, startLicenseWatch, onLicenseChange, isBlocked, getLicense, activate, bannerText, checkUpdate, openDownload } from './license.js';
 import { copyMatchImage, copyResultMessage } from './share-image.js';
 
 const views = ['pin', 'license', 'home', 'setup', 'scoreboard', 'summary', 'history', 'settings'];
@@ -258,7 +258,8 @@ function openResumePrompt(record, { onDiscard } = {}) {
 
 showView('pin');
 initPinGate();
-checkLicense().then(renderLicenseBanner);
+checkLicense().then(() => { renderLicenseBanner(); refreshUpdateBanner(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshUpdateBanner(); });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -287,7 +288,20 @@ function renderLicenseBanner() {
   el.classList.toggle('license-banner--grace', lic.status === 'grace');
 }
 
+let pendingUpdate = null;
+
+async function refreshUpdateBanner() {
+  const el = document.getElementById('update-banner');
+  pendingUpdate = await checkUpdate().catch(() => null);
+  el.style.display = pendingUpdate ? '' : 'none';
+  if (pendingUpdate) el.querySelector('span').textContent = `Hay una versión nueva (${pendingUpdate.versionName}).`;
+}
+
 function initLicenseUi() {
+  document.getElementById('update-download').addEventListener('click', () => {
+    if (pendingUpdate) openDownload(pendingUpdate.url);
+  });
+
   const input = document.getElementById('license-input');
   const msg = document.getElementById('license-msg');
   const btn = document.getElementById('license-activate');

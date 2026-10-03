@@ -15,6 +15,9 @@ const TYPES = ['paga', 'cortesia', 'prueba'];
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'license-data');
 const DB_FILE = path.join(DATA_DIR, 'licenses.json');
+const APK_DIR = path.join(DATA_DIR, 'apk');
+const APK_FILE = path.join(APK_DIR, 'zscore-lite.apk');
+const APK_META_FILE = path.join(APK_DIR, 'apk.json'); // { versionName, versionCode, sha256, publishedAt }
 const PRIVATE_KEY_FILE = process.env.PRIVATE_KEY_FILE || path.join(DATA_DIR, 'license-private.pem');
 
 // ---------- Almacenamiento ----------
@@ -25,9 +28,11 @@ const PRIVATE_KEY_FILE = process.env.PRIVATE_KEY_FILE || path.join(DATA_DIR, 'li
 function readDb() {
   try {
     const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    return db && typeof db.licenses === 'object' ? db : { licenses: {} };
+    if (!db || typeof db.licenses !== 'object') return { licenses: {}, links: {} };
+    db.links = db.links || {};
+    return db;
   } catch (e) {
-    return { licenses: {} };
+    return { licenses: {}, links: {} };
   }
 }
 
@@ -44,6 +49,26 @@ function update(fn) {
   const result = fn(db);
   writeDb(db);
   return result;
+}
+
+// ---------- Links de descarga del APK ----------
+// Un link es de una licencia y de uso limitado: vence y tiene un tope de descargas.
+// Se pueden mandar por WhatsApp; no sirven si la licencia está revocada o vencida.
+
+function newLink(db, code, { hours, maxUses }, now = Date.now()) {
+  for (const [t, l] of Object.entries(db.links)) if (l.expiresAt < now - DAY) delete db.links[t]; // limpieza
+  const token = crypto.randomBytes(18).toString('base64url');
+  db.links[token] = { code, createdAt: now, expiresAt: now + hours * 3600000, maxUses, uses: 0 };
+  return token;
+}
+
+function readApkMeta() {
+  try {
+    const meta = JSON.parse(fs.readFileSync(APK_META_FILE, 'utf8'));
+    return fs.existsSync(APK_FILE) ? meta : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // ---------- Códigos ----------
@@ -112,7 +137,7 @@ function blockReason(lic, now = Date.now()) {
 }
 
 module.exports = {
-  DAY, TOKEN_DAYS, TYPES, DATA_DIR, DB_FILE,
-  readDb, writeDb, update, newCode, normalizeCode,
+  DAY, TOKEN_DAYS, TYPES, DATA_DIR, DB_FILE, APK_DIR, APK_FILE, APK_META_FILE,
+  readDb, writeDb, update, newCode, normalizeCode, newLink, readApkMeta,
   signToken, readToken, blockReason,
 };

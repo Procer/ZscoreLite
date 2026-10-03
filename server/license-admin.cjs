@@ -8,13 +8,19 @@
 //   node license-admin.cjs revocar ZSL-XXXX-XXXX           corta el acceso (en la próxima renovación de la app)
 //   node license-admin.cjs reactivar ZSL-XXXX-XXXX         deshace una revocación
 //   node license-admin.cjs resetear ZSL-XXXX-XXXX          libera el dispositivo (cambio de celular)
+//   node license-admin.cjs publicar-apk RUTA.apk --nombre 1.5 --codigo 6   sube el APK vigente (nombre y versionCode de build.gradle)
+//   node license-admin.cjs link ZSL-XXXX-XXXX [--horas 48] [--usos 3]      link personal de descarga para mandar por WhatsApp
 //
 // Valores por defecto: paga = 30 días, prueba = 14 días, cortesia = sin vencimiento.
 // Usa DATA_DIR igual que el servicio (por defecto ./license-data).
 
 'use strict';
 
+const fs = require('fs');
+const crypto = require('crypto');
 const lib = require('./license-lib.cjs');
+
+const PUBLIC_URL = process.env.PUBLIC_URL || 'https://zscorelite.anka.ar';
 
 const DEFAULT_DAYS = { paga: 30, prueba: 14 };
 
@@ -129,7 +135,34 @@ switch (cmd) {
     console.log('Listo: el próximo dispositivo que active este código queda asociado.');
     break;
   }
+  case 'publicar-apk': {
+    const src = rest[0];
+    if (!src || !fs.existsSync(src)) die('uso: publicar-apk RUTA.apk --nombre 1.5 --codigo 6');
+    const versionCode = Number(flags.codigo);
+    if (!flags.nombre || !(versionCode >= 1)) die('faltan --nombre y --codigo (están en android/app/build.gradle)');
+    fs.mkdirSync(lib.APK_DIR, { recursive: true });
+    fs.copyFileSync(src, lib.APK_FILE);
+    const sha256 = crypto.createHash('sha256').update(fs.readFileSync(lib.APK_FILE)).digest('hex');
+    const meta = { versionName: flags.nombre, versionCode, sha256, publishedAt: Date.now() };
+    fs.writeFileSync(lib.APK_META_FILE, JSON.stringify(meta, null, 2));
+    console.log(`APK ${meta.versionName} (código ${versionCode}) publicado. sha256 ${sha256}`);
+    break;
+  }
+  case 'link': {
+    const hours = flags.horas != null ? Number(flags.horas) : 48;
+    const maxUses = flags.usos != null ? Number(flags.usos) : 3;
+    if (!(hours > 0) || !(maxUses >= 1)) die('--horas y --usos tienen que ser mayores a 0');
+    if (!lib.readApkMeta()) die('todavía no hay un APK publicado (usá publicar-apk)');
+    const token = lib.update((db) => {
+      const lic = getLicense(db, rest[0]);
+      if (stateOf(lic) !== 'activa') die(`la licencia ${lic.code} está ${stateOf(lic)}`);
+      return lib.newLink(db, lic.code, { hours, maxUses });
+    });
+    console.log(`${PUBLIC_URL}/api/license/descargar?t=${token}`);
+    console.log(`(vale ${hours} h y ${maxUses} descargas)`);
+    break;
+  }
   default:
-    console.log('Comandos: crear, listar, ver, extender, revocar, reactivar, resetear (ver el encabezado de este archivo).');
+    console.log('Comandos: crear, listar, ver, extender, revocar, reactivar, resetear, publicar-apk, link (ver el encabezado de este archivo).');
     process.exit(cmd ? 1 : 0);
 }

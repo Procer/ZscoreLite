@@ -109,3 +109,22 @@ sudo -E -u www-data node license-admin.cjs revocar ZSL-XXXX-XXXX
 
 Un token dura 32 días y la app lo renueva sola; revocar o dejar vencer una
 licencia se nota cuando el token vigente de ese celular llega a su fin (+3 días de gracia).
+
+## Descarga protegida del APK
+
+El APK ya no se publica en una ruta abierta: vive en `license-data/apk/` y solo se entrega
+con un link personal (vence, tiene tope de descargas y solo sirve si la licencia está al día).
+
+```bash
+# Publicar (o actualizar) el APK vigente. El nombre y el código salen de android/app/build.gradle
+# (versionName / versionCode); el APK de release es android/app/build/outputs/apk/release/app-release.apk
+node license-admin.cjs publicar-apk /ruta/app-release.apk --nombre 1.5 --codigo 6
+
+# Link personal para mandar por WhatsApp (por defecto 48 h y 3 descargas)
+node license-admin.cjs link ZSL-XXXX-XXXX [--horas 48] [--usos 3]
+```
+
+Las apps instaladas con licencia al día preguntan al abrir si hay una versión más nueva y muestran
+"Hay una versión nueva" con un botón que abre la descarga (link de 15 minutos). Sin licencia vigente
+no se enteran. **Para que el APK deje de ser público hay que borrar `/var/www/zscore/lite/descargar/zscore-lite.apk`
+del VPS** (paso aparte, con confirmación) y, si existe, el link a esa ruta en la web.

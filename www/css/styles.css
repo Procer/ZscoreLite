@@ -1223,3 +1223,6 @@ input[type="text"], input[type="number"], input[type="tel"], input[type="passwor
   background: rgba(255, 190, 60, 0.12); border: 1px solid rgba(255, 190, 60, 0.5); color: #ffd27a;
 }
 .license-banner--grace { background: rgba(255, 92, 92, 0.12); border-color: var(--danger); color: var(--danger); }
+
+.license-banner--update { background: rgba(140, 226, 58, 0.1); border-color: var(--accent-dim); color: var(--accent); }
+.btn-link { color: var(--accent); font-weight: 800; text-decoration: underline; padding: 4px 6px; }

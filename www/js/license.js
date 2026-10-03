@@ -145,7 +145,7 @@ async function post(path, body) {
   }
   let data = {};
   try { data = await res.json(); } catch (e) { /* respuesta sin cuerpo */ }
-  if (res.ok && data.token) return { ok: true, token: data.token };
+  if (res.ok) return { ok: true, ...data };
   return { ok: false, error: data.error || (res.status >= 500 ? 'red' : 'codigo') };
 }
 
@@ -191,6 +191,29 @@ export async function checkLicense() {
   await evaluate();
   renew().catch(() => {});
   return current;
+}
+
+/**
+ * ¿Hay un APK más nuevo? Solo lo sabe quien tiene licencia al día (el servidor
+ * lo verifica). Devuelve { versionName, url } o null. Solo dentro de la app
+ * instalada: en el navegador la web se actualiza sola.
+ */
+export async function checkUpdate() {
+  const native = window.ZScoreNative;
+  const saved = read();
+  if (!native?.appVersionCode || !saved?.token) return null;
+  const installed = native.appVersionCode();
+  if (!(installed > 0)) return null;
+  const r = await post('version', { token: saved.token, device: saved.device });
+  if (!r.ok) return null;
+  if (!(r.versionCode > installed)) return null;
+  return { versionName: r.versionName, url: r.url };
+}
+
+export function openDownload(url) {
+  const full = new URL(url, location.origin).href;
+  if (window.ZScoreNative?.openUrl?.(full)) return;
+  window.open(full, '_blank');
 }
 
 export function startLicenseWatch() {
