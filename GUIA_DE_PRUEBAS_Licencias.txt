@@ -1,0 +1,609 @@
+=====================================================================
+ Z-SCORE LITE - GUÍA DE PRUEBAS (LICENCIAS Y DESCARGA PROTEGIDA)
+ Versión 1.5 - 04/10/2026
+=====================================================================
+
+PARA QUÉ SIRVE ESTE DOCUMENTO
+-----------------------------
+Dice, paso a paso, qué probar, cómo y qué tiene que pasar, para
+confirmar que el sistema de licencias funciona antes de prenderlo. Cada
+prueba tiene una casilla [ ] para tildar y un "DEBE PASAR:" con el
+resultado esperado. Si algo no coincide, andá a la sección final
+"SI ALGO FALLA".
+
+CÓMO LEER LAS MARCAS
+  [PC]       lo hacés en tu computadora (PowerShell).
+  [CELULAR]  lo hacés en el celular.
+  [VPS]      lo hacés en el servidor, por ssh como root.
+  [YO]       lo hago yo (Claude) cuando me lo pidas.
+
+ESTADO DE PARTIDA (importante)
+  - El sistema está construido y probado en la computadora, pero NO
+    está instalado en el servidor ni prendido.
+  - Hoy la app funciona como siempre y no pide licencia.
+  - NO existe panel de administración: las licencias se manejan con
+    comandos en el servidor (los vas a ver más abajo).
+  - NO existe todavía el cobro con Mercado Pago. Mientras tanto, las
+    licencias las creás vos a mano con un comando.
+
+
+ORDEN RECOMENDADO
+-----------------
+  Parte 1  Antes de tocar nada: copia de seguridad y claves.
+  Parte 2  Instalar el APK 1.5 en tu celular y revisar que todo lo de
+           antes siga andando (incluye las pruebas pendientes del
+           informe: sonido, vibración, copiar link, copia de seguridad).
+  Parte 3  Instalar el servicio de licencias en el servidor.
+  Parte 4  Activar y renovar licencias.
+  Parte 5  Cambio de celular, revocar, extender, varios casos.
+  Parte 6  Descarga protegida del APK y avisos de actualización.
+  Parte 7  Vencimiento, gracia y bloqueo.
+  Parte 8  Sin internet.
+  Parte 9  Prender la licencia obligatoria.
+  Parte 10 Cerrar el APK público (la prueba de seguridad más importante).
+
+
+=====================================================================
+ PARTE 1 - ANTES DE TOCAR NADA
+=====================================================================
+
+1.1  [PC] Respaldar las claves
+     Copiá la carpeta  C:\Users\juan.derosas\zscore-keys  a un
+     pendrive o a una nube privada. Tiene:
+        zscore-release.jks     la clave que firma el APK
+        keystore.properties    la contraseña de esa clave
+        license-private.pem    la clave que firma las licencias
+        license-public.pem     su par público
+     [ ] Hecho.
+     POR QUÉ: si se pierde zscore-release.jks no se le puede actualizar
+     la app a ningún cliente. Es la única copia que existe.
+
+1.2  [CELULAR] Copia de seguridad de tus datos (en la app que ya tenés)
+     Configuración -> Datos -> "Exportar copia". Mandala por WhatsApp,
+     Drive o correo.
+     [ ] Hecho. [ ] Verifiqué que el archivo llegó y pesa algo.
+     POR QUÉ: al pasar del APK de prueba al de release hay que
+     desinstalar el viejo y se borran los datos del celular.
+
+
+=====================================================================
+ PARTE 2 - INSTALAR EL APK 1.5 Y REVISAR QUE TODO ANDE
+=====================================================================
+
+Dónde está el APK:
+  C:\laragon\www\zscore\MarcadorLite\android\app\build\outputs\apk\release\app-release.apk
+(Si falta, pedime que lo compile: [YO].)
+
+2.1  [PC] Conectar el celular por USB, pantalla DESBLOQUEADA.
+     Abrir PowerShell y correr:
+
+       $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+       & $adb devices
+
+     DEBE PASAR: aparece tu celular en la lista como "device" (no
+     "unauthorized" ni "offline"). Si pide permiso en el celular,
+     aceptalo.
+     [ ] OK
+
+2.2  [PC] Desinstalar el APK de prueba e instalar el 1.5
+
+       & $adb uninstall ar.zscore.lite
+       & $adb install "C:\laragon\www\zscore\MarcadorLite\android\app\build\outputs\apk\release\app-release.apk"
+       & $adb shell dumpsys package ar.zscore.lite | Select-String "versionName|versionCode"
+
+     DEBE PASAR: "Success" al instalar, y versionName=1.5 y
+     versionCode=6.
+     [ ] OK
+     NOTA: si "install" dice INSTALL_FAILED_UPDATE_INCOMPATIBLE es que
+     el viejo no se desinstaló; repetí el uninstall.
+
+2.3  [CELULAR] Primera apertura
+     Se abre pidiendo crear un PIN. Creá uno y confirmalo.
+     DEBE PASAR: llegás a la pantalla de inicio con "Versión 1.5" al
+     pie, SIN ningún aviso de licencia ni de actualización.
+     [ ] OK
+
+2.4  [CELULAR] Recuperar tus datos
+     Configuración -> Datos -> "Importar copia" y elegí el archivo del
+     paso 1.2.
+     DEBE PASAR: dice "Listo: se importaron N partidos" y el historial
+     y el ranking vuelven a estar.
+     [ ] OK
+
+2.5  [CELULAR] Revisión general (que lo de antes siga funcionando)
+     [ ] Nuevo partido: el asistente te guía y arranca el marcador.
+     [ ] El marcador se ve horizontal, con tantos gigantes.
+     [ ] Control remoto Bluetooth: 1 toque suma a un lado, 2 al otro,
+         3 deshace. Se ve la cuenta regresiva en pantalla.
+     [ ] SONIDO: suena un pitido por cada toque del control.   (*)
+     [ ] VIBRACIÓN: vibra en cada toque.                        (*)
+     [ ] La voz anuncia tantos, games y sets.
+     [ ] Terminar un partido: aparece el resumen, el historial lo
+         guarda y se puede "Copiar imagen" y pegarla en WhatsApp.
+     [ ] Ranking: se ve y se puede copiar como imagen.
+     [ ] Partido en vivo (menú del marcador): genera link y QR, y
+         "Copiar link" lo copia de verdad (pegalo en WhatsApp).    (*)
+     [ ] El link del partido en vivo abre en otro celular y muestra el
+         marcador en tiempo real.
+     [ ] Configuración -> Exportar copia: abre el menú de compartir y
+         el archivo llega.                                          (*)
+     (*) Estas cuatro cosas eran las que el informe marcaba como NO
+         probadas en un celular real. Si alguna falla, anotá cuál.
+
+2.6  [CELULAR] Mirar la tarjeta de licencia
+     Configuración, bajar hasta "Licencia".
+     DEBE PASAR: dice "Esta app todavía no tiene una licencia activada"
+     y hay un botón "Activar con un código".
+     [ ] OK
+
+
+=====================================================================
+ PARTE 3 - INSTALAR EL SERVICIO DE LICENCIAS EN EL SERVIDOR
+=====================================================================
+
+IMPORTANTE: esto toca systemd y nginx del servidor (que es compartido
+con otros sitios). Solo se toca /var/www/zscore/ y el sitio
+zscorelite.anka.ar. Pedime que lo haga yo ([YO]) con tu autorización
+expresa, o seguí estos pasos vos. Los archivos están en la carpeta
+"server" del repo.
+
+3.1  [VPS] Copiar archivos y clave
+
+       mkdir -p /var/www/zscore/license-server /var/www/zscore/license-data
+       # desde la PC (PowerShell, dentro de la carpeta del repo):
+       #   scp server/license-server.cjs server/license-lib.cjs server/license-admin.cjs server/zscore-license.service root@66.97.38.36:/var/www/zscore/license-server/
+       #   scp $env:USERPROFILE\zscore-keys\license-private.pem root@66.97.38.36:/var/www/zscore/license-data/
+       chown -R www-data:www-data /var/www/zscore/license-server /var/www/zscore/license-data
+       chmod 700 /var/www/zscore/license-data
+       chmod 600 /var/www/zscore/license-data/license-private.pem
+
+     La clave privada NUNCA va al repo ni se manda por chat.
+     [ ] Hecho.
+
+3.2  [VPS] Servicio systemd
+
+       cp /var/www/zscore/license-server/zscore-license.service /etc/systemd/system/
+       systemctl daemon-reload
+       systemctl enable --now zscore-license
+       systemctl status zscore-license --no-pager
+
+     DEBE PASAR: dice "active (running)".
+     [ ] OK
+
+3.3  [VPS] Probar el servicio por dentro
+
+       curl -s -X POST http://127.0.0.1:3721/api/license/activar -d '{}'
+
+     DEBE PASAR: responde {"error":"codigo"} (es lo correcto: no mandó
+     ningún código válido).
+     [ ] OK
+
+3.4  [VPS] nginx: agregar el bloque de server/nginx-license.conf dentro
+     del server de 443 de /etc/nginx/sites-available/zscorelite.anka.ar
+     (junto al de /api/live). Antes, hacer un respaldo del archivo.
+
+       cp /etc/nginx/sites-available/zscorelite.anka.ar /etc/nginx/sites-available/zscorelite.anka.ar.bak-license
+       nginx -t
+       systemctl reload nginx
+
+     DEBE PASAR: "syntax is ok" y "test is successful". NO recargar si
+     nginx -t da error.
+     [ ] OK
+
+3.5  [PC] Probar por fuera (por internet, como lo ve la app)
+
+       curl.exe -s -X POST https://zscorelite.anka.ar/api/license/activar -d "{}"
+
+     DEBE PASAR: responde {"error":"codigo"}.
+     [ ] OK
+     Además abrí https://zscorelite.anka.ar en el navegador y entrá a
+     la app: DEBE PASAR que se ve normal. [ ] OK
+     Y que el partido en vivo siga andando. [ ] OK
+
+3.6  [VPS] Dejar un atajo para los comandos (cómodo para todo lo demás)
+
+       export DATA_DIR=/var/www/zscore/license-data
+       alias lic='sudo -E -u www-data node /var/www/zscore/license-server/license-admin.cjs'
+       lic listar
+
+     DEBE PASAR: "No hay licencias." (todavía no creaste ninguna).
+     Cada vez que abras una sesión nueva de ssh tenés que repetir las
+     dos primeras líneas (el export y el alias).
+     [ ] OK
+
+
+=====================================================================
+ PARTE 4 - ACTIVAR Y RENOVAR
+=====================================================================
+
+4.1  [VPS] Crear tu licencia de cortesía (la tuya, no vence)
+
+       lic crear --tipo cortesia --nota "Juan - uso propio"
+
+     DEBE PASAR: muestra un código tipo ZSL-XXXX-XXXX. Anotalo.
+     [ ] OK   Código: ______________
+
+4.2  [CELULAR] Activarla
+     Configuración -> Licencia -> "Activar con un código". Escribí el
+     código (los guiones se ponen solos) y tocá "Activar".
+     DEBE PASAR: vuelve al inicio sin errores. En Configuración ->
+     Licencia dice "Licencia de cortesía · sin vencimiento" y muestra
+     el código.
+     [ ] OK
+
+4.3  [VPS] Confirmar que quedó atada a tu celular
+
+       lic ver ZSL-XXXX-XXXX
+
+     DEBE PASAR: "disp: 1/1" y una línea "dispositivo ..." con la fecha
+     de hoy.
+     [ ] OK
+
+4.4  [CELULAR] Errores de activación (para ver los mensajes)
+     Tocá "Activar con un código" de nuevo y probá:
+       a) Un código inventado: ZSL-AAAA-AAAA
+          DEBE PASAR: "Ese código no existe. Revisalo y probá de nuevo."
+       b) Un código incompleto: ZSL-12
+          DEBE PASAR: "El código tiene el formato ZSL-XXXX-XXXX."
+     [ ] a  [ ] b
+
+4.5  [VPS] Crear una licencia PAGA de prueba (para los pasos siguientes)
+
+       lic crear --tipo paga --dias 30 --nota "prueba paga"
+
+     DEBE PASAR: código nuevo, vence en 30 días. Anotalo.
+     [ ] OK   Código: ______________
+
+4.6  Renovación manual
+     Cuando una licencia paga esté activada en un celular, en
+     Configuración -> Licencia aparece "Renovar ahora".
+     [CELULAR] Tocalo.
+     DEBE PASAR: con internet dice "Licencia renovada."
+     [ ] OK
+     (La app también renueva sola, en silencio, cuando faltan 10 días
+     o menos y hay internet. No necesitás hacer nada.)
+
+
+=====================================================================
+ PARTE 5 - CAMBIO DE CELULAR, REVOCAR, EXTENDER
+=====================================================================
+
+5.1  Un código no se puede usar en dos celulares
+     Necesitás un segundo celular (o el navegador de la PC con la web
+     https://zscorelite.anka.ar -> PIN -> Configuración -> Licencia).
+     Activá en ese segundo equipo el MISMO código de la licencia paga
+     (4.5) que ya activaste en el primero.
+     DEBE PASAR: "Ese código ya está activado en otro dispositivo."
+     [ ] OK
+
+5.2  Cambio de celular legítimo
+     [VPS]  lic resetear ZSL-XXXX-XXXX     (la paga de prueba)
+     DEBE PASAR: dice "Listo: el próximo dispositivo que active este
+     código queda asociado."
+     [SEGUNDO EQUIPO] Activá el código.  DEBE PASAR: ahora sí entra.
+     [PRIMER CELULAR] "Renovar ahora".
+     DEBE PASAR: NO renueva ("No hay una renovación disponible...").
+     [ ] OK
+     (El primer celular conserva lo que ya tenía hasta que se le acabe
+     su certificado; después queda sin licencia.)
+
+5.3  Revocar y reactivar
+     [VPS]  lic revocar ZSL-XXXX-XXXX
+     [CELULAR con esa licencia] "Renovar ahora".
+     DEBE PASAR: no renueva. En el servidor, "lic listar" la muestra
+     como REVOCADA.
+     [VPS]  lic reactivar ZSL-XXXX-XXXX  y volver a "Renovar ahora".
+     DEBE PASAR: ahora sí renueva.
+     [ ] OK
+     RECORDÁ: revocar NO corta el celular al instante. Corta cuando se
+     le acaba el certificado que ya tiene (hasta 32 días + 3 de
+     gracia). Es así a propósito: la app tiene que andar sin internet.
+
+5.4  Extender una licencia (lo que harías tras un pago)
+     [VPS]  lic extender ZSL-XXXX-XXXX 30
+     DEBE PASAR: la fecha de vencimiento avanza 30 días.
+     [ ] OK
+
+5.5  Licencia de prueba
+     [VPS]  lic crear --tipo prueba
+     DEBE PASAR: vence en 14 días y se activa como las demás.
+     [ ] OK
+
+5.6  Ver el listado completo
+     [VPS]  lic listar
+     DEBE PASAR: una línea por licencia con código, tipo, estado,
+     vencimiento, dispositivos y nota.
+     [ ] OK
+
+
+=====================================================================
+ PARTE 6 - DESCARGA PROTEGIDA Y AVISOS DE ACTUALIZACIÓN
+=====================================================================
+
+6.1  [VPS] Publicar el APK 1.5 con sus novedades
+     Subí app-release.apk al servidor, a /tmp/ (no a /root/: el comando
+     corre como otro usuario y ahí no podría leerlo):
+
+       scp app-release.apk root@66.97.38.36:/tmp/
+
+     y después:
+
+       lic publicar-apk /tmp/app-release.apk --nombre 1.5 --codigo 6 \
+         --notas "Pantalla de licencia|Descarga protegida|Avisos de actualización"
+
+     DEBE PASAR: "APK 1.5 (código 6) publicado" y la lista de
+     novedades.
+     [ ] OK
+     NOTA: --nombre y --codigo salen de android/app/build.gradle
+     (versionName y versionCode). Tienen que coincidir con el APK.
+
+6.2  Link personal de descarga
+     (Si el navegador del celular reintenta la descarga, puede gastar
+     un uso extra: no te asustes si el tope se agota antes.)
+     [VPS]  lic link ZSL-XXXX-XXXX --horas 1 --usos 2
+     DEBE PASAR: imprime una dirección larga
+     https://zscorelite.anka.ar/api/license/descargar?t=...
+     [CELULAR o PC] Abrila.
+     DEBE PASAR: se baja el archivo zscore-lite-1.5.apk.
+     [ ] OK
+     Probá abrirla una 3ª vez (tope 2).
+     DEBE PASAR: página "Este link venció, ya se usó o su licencia no
+     está vigente. Pedí uno nuevo."
+     [ ] OK
+
+6.3  El link no sirve si la licencia está revocada
+     [VPS]  lic link ZSL-XXXX-XXXX     (nuevo)
+     [VPS]  lic revocar ZSL-XXXX-XXXX
+     Abrí ese link.  DEBE PASAR: la página de "venció / no vigente".
+     Y "lic link" para esa misma licencia revocada da error.
+     [VPS]  lic reactivar ZSL-XXXX-XXXX
+     [ ] OK
+
+6.4  Aviso de actualización dentro de la app
+     Se prueba publicando una versión "más nueva" a propósito:
+     [VPS]  lic publicar-apk /tmp/app-release.apk --nombre 1.6 --codigo 7 \
+              --notas "Ahora se puede compartir el partido|Se corrigió un error del tie-break"
+     [CELULAR] (con la licencia activada y la app 1.5) cerrá la app del
+     todo y volvé a abrirla con internet. Ingresá el PIN.
+     DEBE PASAR: en el inicio aparece un cuadro verde "Hay una versión
+     nueva (1.6). Ver novedades".
+     Tocá "Ver novedades".
+     DEBE PASAR: se abre una hoja "Versión 1.6" con las dos novedades
+     y los botones "Descargar actualización" y "Ahora no".
+     Tocá "Ahora no".  DEBE PASAR: se cierra la hoja.
+     Tocá "Descargar actualización".
+     DEBE PASAR: abre el navegador del celular y baja el APK.
+     [ ] OK
+     IMPORTANTE: el archivo es en realidad el 1.5 con otro nombre; al
+     instalarlo, Android lo reinstala igual. No lo instales a menos que
+     quieras, y NO te olvides de DEJAR LAS COSAS COMO ESTABAN:
+     [VPS]  lic publicar-apk /tmp/app-release.apk --nombre 1.5 --codigo 6 \
+              --notas "Pantalla de licencia|Descarga protegida|Avisos de actualización"
+     [CELULAR] Reabrí la app: DEBE PASAR que el cuadro verde desaparece.
+     [ ] OK
+
+6.5  Sin licencia no hay aviso
+     Un celular sin licencia activada (o la web en el navegador) nunca
+     ve el cuadro verde.  [ ] OK
+     (El aviso solo existe dentro del APK instalado: en el navegador la
+     web se actualiza sola.)
+
+
+=====================================================================
+ PARTE 7 - VENCIMIENTO, GRACIA Y BLOQUEO
+=====================================================================
+
+Para ver estos estados sin esperar semanas se usa una licencia que
+dura minutos y, para la gracia y el bloqueo, se adelanta la fecha del
+celular. HACELO CON UNA LICENCIA DE PRUEBA Y UN CELULAR/INSTALACIÓN
+SECUNDARIA si podés, no con tu celular principal.
+
+7.1  Aviso de "por vencer"
+     [VPS]  lic crear --tipo paga --dias 4 --nota "prueba por vencer"
+     [CELULAR] Activala (Configuración -> Licencia -> código).
+     DEBE PASAR: en el inicio, cuadro AMARILLO "Tu licencia vence en 4
+     días. Conectate a internet para renovarla."
+     (Se avisa desde 5 días antes.)
+     [ ] OK
+
+7.2  Gracia (venció hace menos de 3 días)
+     [VPS]  lic crear --tipo paga --dias 0.01 --nota "prueba vencimiento"
+            (dura unos 15 minutos)
+     [CELULAR] Activala y ESPERÁ 15 minutos a que venza de verdad.
+     Poné la fecha del celular UN DÍA ADELANTE
+     (Ajustes del celular -> Fecha y hora; desactivá "automática").
+     Cerrá la app y abrila.
+     DEBE PASAR: cuadro ROJO "Tu licencia venció. Te quedan 3 días (o 2)
+     para renovarla antes de que se bloquee la app." La app sigue
+     funcionando normal.
+     [ ] OK
+
+7.3  Bloqueo
+     Con esa misma licencia, poné la fecha CINCO DÍAS adelante, cerrá y
+     abrí la app, ingresá el PIN.
+     DEBE PASAR: pantalla "Tu licencia venció" con el campo de código y
+     los botones "Ver historial", "Copia de seguridad" y "Volver".
+       [ ] "Ver historial" abre el historial y se ve todo.
+       [ ] "Copia de seguridad" lleva a Configuración y permite exportar.
+       [ ] Desde ahí, volver al inicio te devuelve a la pantalla de
+           "Tu licencia venció" (no se puede armar un partido nuevo).
+     [ ] OK
+     Si había un partido en curso, DEBE PASAR que se puede retomar y
+     terminar, y que el resumen se guarda. [ ] OK
+
+7.4  Volver a la normalidad
+     [VPS]  lic extender ZSL-XXXX-XXXX 30   (la de prueba de 7.2)
+     [CELULAR] Dejá la fecha AUTOMÁTICA otra vez y, con internet,
+     tocá "Renovar ahora" (si ves la tarjeta) o activá de nuevo.
+     ADVERTENCIA: la app recuerda la "fecha más alta que vio" para que
+     nadie atrase el reloj y evite vencer. Por eso, tras adelantar la
+     fecha, atrasarla NO deshace el estado. Para limpiar la prueba:
+       [VPS]  lic resetear ZSL-XXXX-XXXX
+       [CELULAR] Ajustes -> Apps -> Z-Score Lite -> Almacenamiento ->
+       Borrar datos (ANTES hacé la copia de seguridad), o desinstalar y
+       reinstalar. Después activá de nuevo.
+     [ ] OK
+     DEBE PASAR (prueba extra): si atrasás el reloj para "volver al
+     pasado" con una licencia vencida, la app NO se desbloquea. [ ] OK
+
+
+=====================================================================
+ PARTE 8 - SIN INTERNET
+=====================================================================
+
+8.1  [CELULAR] Con una licencia ya activada, activá el modo avión y
+     abrí la app.
+     DEBE PASAR: entra normal, sin errores; se puede jugar un partido
+     completo, ver historial, etc.
+     [ ] OK
+8.2  [CELULAR] En modo avión, "Activar con un código" con un código
+     válido.
+     DEBE PASAR: "No hay conexión con el servidor. Probá de nuevo con
+     internet."
+     [ ] OK
+8.3  [CELULAR] Sacá el modo avión.
+     DEBE PASAR: la app sigue funcionando; si la licencia faltaba menos
+     de 10 días para vencer, se renueva sola en segundo plano.
+     [ ] OK
+
+
+=====================================================================
+ PARTE 9 - PRENDER LA LICENCIA OBLIGATORIA
+=====================================================================
+
+NO hagas esta parte hasta que las partes 3 a 8 estén tildadas, y SOLO
+después de haber activado tu cortesía (4.2). Si la prendés sin tener
+licencia activada, vos mismo quedás bloqueado.
+
+9.1  [YO] Cambio en www/js/license.js:  LICENSE_REQUIRED = true,
+     se sube la versión del caché del service worker (sw.js) y se
+     despliega la web al servidor. El APK 1.5 carga la web en vivo, así
+     que no hace falta reinstalar nada.
+     [ ] Hecho.
+9.2  [CELULAR] Abrir la app con tu licencia de cortesía activada.
+     DEBE PASAR: entra normal, sin pedir nada.
+     [ ] OK
+9.3  [PC] Abrir https://zscorelite.anka.ar en el navegador de la PC
+     (donde nunca activaste nada).
+     DEBE PASAR: tras el PIN aparece la pantalla "Activá tu licencia".
+     [ ] OK
+9.4  Activar ese navegador con una licencia de prueba.
+     DEBE PASAR: entra al inicio.
+     [ ] OK
+9.5  Para volver atrás en caso de emergencia: [YO] pongo
+     LICENSE_REQUIRED = false y despliego. Es un solo valor.
+
+
+=====================================================================
+ PARTE 10 - CERRAR EL APK PÚBLICO (LA PRUEBA DE SEGURIDAD)
+=====================================================================
+
+Hoy el APK está en una dirección pública que cualquiera puede abrir.
+Mientras no se borre, la protección es de adorno.
+
+10.1 [PC] Antes de borrar, ver que existe:
+
+       curl.exe -I https://zscorelite.anka.ar/descargar/zscore-lite.apk
+
+     Hoy debería dar 200. [ ] (anotá lo que da: ______ )
+
+10.2 [VPS] Borrarlo, con autorización tuya:
+
+       rm /var/www/zscore/lite/descargar/zscore-lite.apk
+
+     Y revisar si alguna página de la web lo enlaza (buscar
+     "zscore-lite.apk" en /var/www/zscore/lite/ y quitar ese link).
+     [ ] Hecho.
+
+10.3 [PC] Repetir el curl.exe -I del 10.1.
+     DEBE PASAR: da 404 (no existe más).
+     [ ] OK
+
+10.4 Que nadie pueda adivinar la nueva ruta
+     [PC] curl.exe -s -o NUL -w "%{http_code}" https://zscorelite.anka.ar/api/license/descargar
+     DEBE PASAR: 403 (página de error, no el archivo).
+     [ ] OK
+     [PC] Probá un link inventado:
+     curl.exe -s -o NUL -w "%{http_code}" "https://zscorelite.anka.ar/api/license/descargar?t=inventado"
+     DEBE PASAR: 403.
+     [ ] OK
+
+
+=====================================================================
+ PRUEBAS DE ABUSO (OPCIONAL, SOLO SI QUERÉS)
+=====================================================================
+A.1  Adivinar códigos: desde una misma conexión, intentá activar 16
+     códigos inventados seguidos.
+     DEBE PASAR: del 16º en adelante dice "Demasiados intentos. Probá
+     de nuevo en una hora." (Se levanta solo; si te trabás, avisame.)
+A.2  Pasarse el APK: instalalo en un celular sin licencia.
+     DEBE PASAR: con la licencia obligatoria prendida, no pasa de la
+     pantalla "Activá tu licencia".
+A.3  Compartir el código: usá en otro celular el código ya activado.
+     DEBE PASAR: "ya está activado en otro dispositivo".
+LÍMITES QUE CONVIENE TENER CLAROS
+  - Es un control "blando": alguien con conocimientos técnicos podría
+    saltearlo editando la app. Alcanza para el uso normal de clubes.
+  - La web de la raíz sigue siendo abierta para quien no tiene licencia
+    hasta que se prenda LICENSE_REQUIRED; aun prendido, el control
+    vive dentro de la página.
+
+
+=====================================================================
+ COMANDOS DE ADMINISTRACIÓN (RESUMEN)
+=====================================================================
+Se corren en el servidor, después del export y el alias del paso 3.6.
+
+  lic crear --tipo paga --dias 30 --nota "Club X"   nueva licencia
+  lic crear --tipo cortesia --nota "Regalo"          sin vencimiento
+  lic crear --tipo prueba                            14 días
+  lic crear ... --dispositivos 2                     permite 2 celulares
+  lic listar                                         todas
+  lic ver ZSL-XXXX-XXXX                              detalle y dispositivos
+  lic extender ZSL-XXXX-XXXX 30                      suma 30 días
+  lic revocar ZSL-XXXX-XXXX                          corta el acceso
+  lic reactivar ZSL-XXXX-XXXX                        deshace la revocación
+  lic resetear ZSL-XXXX-XXXX                         libera el celular
+  lic publicar-apk RUTA --nombre 1.5 --codigo 6 --notas "a|b|c"
+  lic link ZSL-XXXX-XXXX --horas 48 --usos 3         link para WhatsApp
+
+Tipos: paga (vence), prueba (vence), cortesia (no vence).
+Estados en "lic listar": activa, vencida, REVOCADA.
+
+
+=====================================================================
+ SI ALGO FALLA
+=====================================================================
+Mandame (o anotá) lo siguiente:
+  1. Qué prueba era (número) y qué esperabas vs. qué pasó.
+  2. Una foto o captura de la pantalla con el mensaje.
+  3. En el servidor, estos tres datos:
+
+       systemctl status zscore-license --no-pager
+       journalctl -u zscore-license -n 50 --no-pager
+       lic ver ZSL-XXXX-XXXX
+
+  4. Si es en el celular: modelo, versión de la app (pie del inicio) y
+     si tenía internet.
+
+Problemas conocidos y qué hacer:
+  - "No hay conexión con el servidor" con internet: revisar el paso
+    3.5 (el bloque de nginx) y 3.2 (que el servicio esté corriendo).
+  - La app dice "ya está activado en otro dispositivo" en TU celular:
+    se reinstaló o se borraron datos; usar "lic resetear".
+  - Quedaste bloqueado con la licencia obligatoria prendida: pedime
+    apagarla (9.5) o activá tu cortesía.
+  - nginx -t da error: NO recargar; restaurar el respaldo
+    (.bak-license) y avisarme.
+
+
+=====================================================================
+ LO QUE TODAVÍA NO EXISTE
+=====================================================================
+  - Panel de administración (hoy todo es por comandos).
+  - Cobro automático con Mercado Pago y registro de lo cobrado.
+  - Estadísticas e indicadores del negocio (cuántas licencias activas,
+    ingresos, vencimientos próximos, etc.).
+  - Control "duro" que también cierre la web desde el servidor.
+  - Corte inmediato al revocar.
+=====================================================================
