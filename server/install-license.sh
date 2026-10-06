@@ -20,8 +20,12 @@ CODE_DIR="$BASE/license-server"
 DATA_DIR="$BASE/license-data"
 VHOST="${VHOST:-/etc/nginx/sites-available/lite.zscore.ar}"
 SERVICE=/etc/systemd/system/zscore-license.service
-FILES=(license-server.cjs license-lib.cjs license-ops.cjs license-panel.cjs license-admin.cjs)
+# Todos los license-*.cjs de la carpeta: así un módulo nuevo no puede quedar sin copiar (pasó con license-pay.cjs).
+FILES=()
+for f in "$SRC"/license-*.cjs; do FILES+=("$(basename "$f")"); done
 PANEL_FILES=(admin.html admin.css admin.js)
+PREV="$CODE_DIR.anterior"
+SERVICE_PREV="$SERVICE.anterior"
 
 say() { printf '\n== %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -34,7 +38,7 @@ command -v node >/dev/null || die "no hay node en el servidor"
 [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 18 ] || die "hace falta Node 18 o más (hay $(node -v))"
 id www-data >/dev/null 2>&1 || die "no existe el usuario www-data"
 [ -f "$VHOST" ] || die "no encuentro $VHOST (si se llama distinto: VHOST=/ruta bash install-license.sh ...)"
-for f in "${FILES[@]}" zscore-license.service nginx-license.conf nginx-admin.conf; do [ -f "$SRC/$f" ] || die "falta $SRC/$f"; done
+for f in license-server.cjs license-lib.cjs license-ops.cjs license-panel.cjs license-pay.cjs license-admin.cjs zscore-license.service nginx-license.conf nginx-admin.conf; do [ -f "$SRC/$f" ] || die "falta $SRC/$f"; done
 for f in "${PANEL_FILES[@]}"; do [ -f "$SRC/panel/$f" ] || die "falta $SRC/panel/$f"; done
 openssl pkey -in "$KEY_SRC" -noout 2>/dev/null || die "la clave no se puede leer como PEM"
 echo "node $(node -v), clave legible"
@@ -43,6 +47,9 @@ openssl pkey -in "$KEY_SRC" -pubout -outform DER | base64 -w0; echo
 
 say "Copiando archivos"
 mkdir -p "$CODE_DIR" "$DATA_DIR"
+# Copia de lo que hay ahora, para volver atrás si el servicio nuevo no arranca.
+rm -rf "$PREV"; cp -a "$CODE_DIR" "$PREV"
+if [ -f "$SERVICE" ]; then cp -a "$SERVICE" "$SERVICE_PREV"; fi
 for f in "${FILES[@]}"; do install -m 644 "$SRC/$f" "$CODE_DIR/$f"; done
 mkdir -p "$CODE_DIR/panel"
 for f in "${PANEL_FILES[@]}"; do install -m 644 "$SRC/panel/$f" "$CODE_DIR/panel/$f"; done
@@ -53,16 +60,31 @@ fi
 chown -R www-data:www-data "$CODE_DIR" "$DATA_DIR"
 chmod 700 "$DATA_DIR"
 
+# Si algo sale mal después de copiar, se deja el servicio como estaba antes.
+rollback() {
+  echo "Volviendo a la versión anterior del servicio..." >&2
+  if [ -d "$PREV" ]; then rm -rf "$CODE_DIR"; cp -a "$PREV" "$CODE_DIR"; fi
+  if [ -f "$SERVICE_PREV" ]; then cp -a "$SERVICE_PREV" "$SERVICE"; fi
+  systemctl daemon-reload
+  systemctl restart zscore-license || true
+  if systemctl is-active --quiet zscore-license; then echo "El servicio anterior quedó funcionando." >&2; else echo "OJO: el servicio anterior tampoco arrancó; revisá: journalctl -u zscore-license -n 30" >&2; fi
+}
+
 say "Servicio systemd"
+# Antes de reiniciar: que todos los módulos se puedan cargar (esto atrapa un archivo que falte).
+for f in "${FILES[@]}"; do
+  case "$f" in license-server.cjs|license-admin.cjs) continue ;; esac
+  DATA_DIR="$DATA_DIR" PRIVATE_KEY_FILE="$DATA_DIR/license-private.pem" node -e "require('$CODE_DIR/$f')" 2>/tmp/zs-require.err     || { cat /tmp/zs-require.err >&2; rollback; die "no se puede cargar $f; no se reinició el servicio nuevo"; }
+done
 install -m 644 "$SRC/zscore-license.service" "$SERVICE"
 systemctl daemon-reload
 systemctl enable zscore-license >/dev/null 2>&1
 systemctl restart zscore-license
 sleep 1
-systemctl is-active --quiet zscore-license || { journalctl -u zscore-license -n 20 --no-pager; die "el servicio no arrancó"; }
+systemctl is-active --quiet zscore-license || { journalctl -u zscore-license -n 20 --no-pager; rollback; die "el servicio nuevo no arrancó"; }
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
   -d '{"code":"ZSL-NOPE-NOPE","device":"instalacion-prueba"}' http://127.0.0.1:3721/api/license/activar)
-[ "$code" = "404" ] || die "el servicio respondió $code en vez de 404 (código inexistente)"
+[ "$code" = "404" ] || { rollback; die "el servicio respondió $code en vez de 404 (código inexistente)"; }
 echo "servicio activo y respondiendo"
 
 say "nginx"

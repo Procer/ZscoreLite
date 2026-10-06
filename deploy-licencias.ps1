@@ -3,8 +3,8 @@
 #   .\deploy-licencias.ps1                 (corre los tests, sube, instala y prueba)
 #   .\deploy-licencias.ps1 -SinTests       (salta los tests)
 #
-# No toca la clave privada (ya está instalada), no prende la licencia obligatoria y no borra el APK público.
-# Para cargar las credenciales de Mercado Pago o crear la contraseña del panel, ver server/README.md.
+# No toca la clave privada (ya esta instalada), no prende la licencia obligatoria y no borra el APK publico.
+# Para cargar las credenciales de Mercado Pago o crear la contrasena del panel, ver server/README.md.
 
 param(
   [string]$Vps = 'root@66.97.38.36',
@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
 function Paso($texto) { Write-Host "`n== $texto" -ForegroundColor Cyan }
-function Verificar($texto) { if ($LASTEXITCODE -ne 0) { throw "Falló: $texto (código $LASTEXITCODE). No se siguió." } }
+function Verificar($texto) { if ($LASTEXITCODE -ne 0) { throw "Fallo: $texto (codigo $LASTEXITCODE). No se siguio." } }
 
 if (-not $SinTests) {
   Paso 'Tests (47 esperados)'
@@ -41,9 +41,9 @@ $panel = curl.exe -s -o NUL -w '%{http_code}' "$Url/admin"
 $sesion = curl.exe -s "$Url/api/admin/session"
 Write-Host "licencias (esperado 404): $licencia"
 Write-Host "panel /admin (esperado 200): $panel"
-Write-Host "sesión del panel: $sesion"
-if ($licencia -ne '404' -or $panel -ne '200') { throw 'La verificación externa no dio lo esperado: revisá nginx y el servicio (journalctl -u zscore-license -n 30).' }
+Write-Host "sesion del panel: $sesion"
+if ($licencia -ne '404' -or $panel -ne '200') { throw 'La verificacion externa no dio lo esperado: revisa nginx y el servicio (journalctl -u zscore-license -n 30).' }
 
 Paso 'Listo'
 Write-Host "Panel: $Url/admin  (usuario admin)"
-Write-Host 'La app sigue sin exigir licencia y el APK público sigue donde estaba.'
+Write-Host 'La app sigue sin exigir licencia y el APK publico sigue donde estaba.'
