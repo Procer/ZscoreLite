@@ -3,7 +3,7 @@
   "appName": "Z-Score Lite",
   "webDir": "www",
   "server": {
-    "url": "https://zscorelite.anka.ar",
+    "url": "https://lite.zscore.ar/app/",
     "cleartext": false
   },
   "plugins": {

@@ -169,7 +169,7 @@ public class MainActivity extends BridgeActivity {
         public boolean openUrl(String url) {
             try {
                 Uri uri = Uri.parse(url);
-                if (!"https".equals(uri.getScheme()) || !"zscorelite.anka.ar".equals(uri.getHost())) return false;
+                if (!"https".equals(uri.getScheme()) || !"lite.zscore.ar".equals(uri.getHost())) return false;
                 Intent view = new Intent(Intent.ACTION_VIEW, uri);
                 runOnUiThread(() -> startActivity(view));
                 return true;
