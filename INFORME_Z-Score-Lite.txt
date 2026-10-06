@@ -11,7 +11,7 @@ también desde el navegador. Sirve para llevar el tanteo, dar el
 resultado en voz, guardar el historial y armar un ranking interno de
 jugadores y parejas.
 
-En producción: https://zscorelite.anka.ar
+En producción: https://lite.zscore.ar
 Código: https://github.com/Procer/ZscoreLite (rama main)
 
 
@@ -81,28 +81,68 @@ PARA EL CLUB
 * PIN de acceso de 4 dígitos para abrir la app.
 
 
-LICENCIAS Y DESCARGA PROTEGIDA (NUEVO)
---------------------------------------
-ESTADO: construido y probado en la computadora, commiteado en el repo.
-TODAVÍA NO ESTÁ INSTALADO EN EL SERVIDOR (VPS) NI PRENDIDO. Hoy la app
-funciona como siempre y no le pide licencia a nadie.
+LICENCIAS, PANEL Y COBRO (ACTUALIZADO 06/10/2026)
+--------------------------------------------------
+ESTADO: el servicio de licencias y el panel de administración están
+instalados en el servidor (VPS). La app TODAVÍA NO le exige licencia a
+nadie: esa llave (LICENSE_REQUIRED en www/js/license.js) está apagada
+hasta terminar las pruebas con celulares reales. El cobro con Mercado
+Pago está programado y probado contra un simulador, pero apagado hasta
+cargar las credenciales. Hoy el APK público sigue disponible.
 
 Cómo funciona, en simple:
   - Cada cliente tiene un CÓDIGO personal (ZSL-XXXX-XXXX). Se escribe una
     vez en la app y queda atado a ESE celular (1 dispositivo por código).
   - El servidor le entrega al celular un certificado firmado con fecha de
-    vencimiento. La app lo revisa sin internet, así que funciona en la
-    cancha sin señal. Se renueva solo cuando hay internet.
-  - Si no se renueva: aviso antes de vencer, 3 días de gracia con aviso
-    en rojo y después bloqueo. Bloqueada, se puede terminar el partido
-    en curso, ver el historial y sacar la copia de seguridad. Nadie
-    pierde sus datos.
+    vencimiento (hasta 32 días). La app lo revisa sin internet, así que
+    funciona en la cancha sin señal. Se renueva solo cuando hay internet.
+  - Si no se renueva: aviso 5 días antes de vencer, 3 días de gracia con
+    aviso en rojo y después bloqueo. Bloqueada, se puede terminar el
+    partido en curso, ver el historial y sacar la copia de seguridad.
+    Nadie pierde sus datos.
   - Tipos: PAGA (30 días, se renueva con cada pago), PRUEBA (14 días) y
-    CORTESÍA (no vence: para vos, demos y regalos).
+    CORTESÍA (no vence: para vos, demos y regalos). La cortesía también
+    renueva un certificado de 32 días, así que revocarla la corta igual
+    que a las demás.
   - Si se pasan el APK entre celulares: sin código no sirve. Con el
     código, queda atado al primer celular que lo activa; el otro recibe
     "ya está activado en otro dispositivo". Cambio de celular legítimo =
-    comando "resetear".
+    "Liberar dispositivo" en el panel.
+
+Prueba gratis desde la app (nuevo):
+  - Si el celular no tiene licencia, la pantalla de activación ofrece
+    "Probar gratis": crea una licencia de prueba de 14 días ya activada.
+  - Una por celular. Tope de 3 por conexión cada 30 días y 300 por día.
+    Se apaga con TRIAL_DAYS=0 en el servidor.
+  - Límite conocido: quien borra los datos de la app consigue un celular
+    "nuevo"; el tope por conexión lo frena.
+
+Panel de administración (nuevo): https://lite.zscore.ar/admin
+  - Usuario admin y contraseña propia (se cambia desde el botón
+    "Contraseña" del panel). Sesión de 30 minutos sin uso.
+  - Resumen con lo que hay que atender (por vencer, pagas vencidas,
+    pruebas por convertir, sin activar), tabla de licencias con búsqueda
+    y filtros, y ficha de cada licencia con historial.
+  - En la ficha: extender / registrar pago, convertir prueba a paga,
+    revocar y reactivar, liberar dispositivo, máximo de dispositivos,
+    link de descarga del APK, datos del cliente y link de pago de
+    Mercado Pago.
+  - Pestaña "App (APK)": sube y publica la versión vigente con sus
+    novedades. Pestaña "Ayuda": explica todo en español.
+  - Respaldo: los mismos comandos de siempre en el servidor (ver
+    server/README.md y GUIA_DE_PRUEBAS_Licencias.txt).
+
+Cobro con Mercado Pago (nuevo, apagado hasta cargar credenciales):
+  - Desde la ficha se genera un link de pago por UN período (por ejemplo
+    30 días). El cliente paga y la licencia se extiende sola; si era una
+    prueba, pasa a paga. No hay débito automático: el mes siguiente se
+    genera otro link.
+  - El servidor valida la firma del aviso, consulta el pago a Mercado
+    Pago, comprueba monto y moneda contra lo generado y aplica cada pago
+    una sola vez. Reintegros y contracargos quedan para revisar a mano.
+  - Para activarlo: access token y clave del webhook en
+    /etc/zscore-license.env (ver server/README.md). Probar primero con
+    credenciales de prueba.
 
 Descarga protegida del APK:
   - El APK deja de estar en una dirección pública. Se entrega con un link
@@ -113,16 +153,13 @@ Descarga protegida del APK:
     de los cambios (la escribís al publicar) y el botón de descarga.
     Sin licencia vigente no se entera.
 
-Cómo se administra HOY (no hay panel, solo comandos en el servidor):
-  crear, listar, ver, extender, revocar, reactivar, resetear,
-  publicar-apk y link. Detalle en server/README.md y en
-  GUIA_DE_PRUEBAS_Licencias.txt.
-
-Piezas nuevas en el código:
+Piezas en el código:
   www/js/license.js (validación en la app), server/license-server.cjs
-  (servicio), server/license-admin.cjs (comandos), server/license-lib.cjs
-  (código compartido). Las claves están FUERA del repo en
-  C:\Users\juan.derosas\zscore-keys\ (hay que respaldarlas).
+  (servicio), server/license-panel.cjs + server/panel/ (panel),
+  server/license-pay.cjs (cobro), server/license-ops.cjs (reglas),
+  server/license-admin.cjs (comandos), server/license-lib.cjs (base y
+  firma). Pruebas automáticas: npm test (47). Las claves están FUERA del
+  repo en C:\Users\juan.derosas\zscore-keys\ (hay que respaldarlas).
 
 
 CÓMO ESTÁ ARMADA
@@ -145,44 +182,48 @@ LÍMITES QUE CONVIENE SABER
 * Saque por jugador: se sabe qué pareja saca, no qué jugador. Las
   estadísticas de saque de cada jugador son las de su pareja.
 * El PIN es una traba local, no seguridad real.
-* SIN CONTROL DE PAGO TODAVÍA EN PRODUCCIÓN: el sistema de licencias
-  está hecho pero no instalado ni prendido. Hasta entonces el APK y la
-  web son públicos. Aun instalado, el control de la app es "blando": una
-  persona con conocimientos técnicos podría saltárselo, y la web de la
-  raíz sigue abierta hasta pasar al nivel "duro".
+* El control de la app es "blando": una persona con conocimientos
+  técnicos podría saltárselo, y la web de la raíz sigue abierta hasta
+  pasar al nivel "duro" (cierre de la web, fuera de este plan).
 * Corte con demora: revocar o dejar vencer una licencia se nota cuando
   se termina el certificado vigente de ese celular (hasta 32 días + 3
-  de gracia), porque la app tiene que funcionar sin internet.
-* NO HAY PANEL DE ADMINISTRACIÓN: las licencias se manejan por comandos
-  en el servidor. Tampoco hay todavía cobro automático ni estadísticas
-  de lo cobrado.
-* Varias cosas de las últimas tandas se probaron en el navegador y NO
-  en el celular: sonido, vibración, copiar el link del partido en vivo
-  y la copia de seguridad. Conviene probarlas.
+  de gracia), porque la app tiene que funcionar sin internet. La ficha
+  del panel muestra hasta cuándo vale el certificado de cada celular.
+* El cobro es por período (un link por cada pago), sin suscripción ni
+  débito automático.
+* Varias cosas se probaron en el navegador y NO en el celular: sonido,
+  vibración, copiar el link del partido en vivo y la copia de seguridad.
+  Conviene probarlas.
 
 
 PENDIENTE
 ---------
-Definido por vos (03/10/2026): cobro por Mercado Pago (quizás
-suscripción), precio por dispositivo, entrega automática, sin Google
-Play (APK directo, firmado con clave propia). El precio sigue sin
-definirse; no frena nada.
+Definido por vos (03/10/2026): cobro por Mercado Pago, precio por
+dispositivo, entrega automática, sin Google Play (APK directo, firmado
+con clave propia). El precio sigue sin definirse; no frena nada.
+
+Hecho (06/10/2026): servicio y panel instalados en el servidor, cobro
+con Mercado Pago y prueba gratis programados y probados, APK 1.5
+compilado y firmado.
 
 Para terminar, en este orden:
-  1. Instalar el servicio de licencias en el servidor (necesita tu
-     confirmación: toca systemd, nginx y copia la clave privada).
-  2. Publicar el APK 1.5 con sus novedades y crear tu licencia de
-     cortesía. Instalar el APK 1.5 en tu celular (hay que desinstalar el
-     de prueba; antes, hacer la copia de seguridad desde la app).
-  3. Borrar el APK público del servidor. Sin esto la protección no sirve.
-  4. Probar todo de punta a punta (ver GUIA_DE_PRUEBAS_Licencias.txt) y
-     recién ahí prender la licencia obligatoria.
-  5. Cobro automático con Mercado Pago: cuenta de vendedor, suscripción
-     por dispositivo y aviso (webhook) que cree o extienda la licencia.
-  6. Panel de administración con ayudas, cobros de Mercado Pago,
-     estadísticas e indicadores (propuesto, aún no construido).
-  7. Más adelante: control "duro" que también cierre la web, varios
-     dispositivos por licencia y revocación inmediata.
+  1. Subir al servidor la última versión del servicio y publicar la web
+     (www/) con la prueba gratis y el arreglo de cortesías.
+  2. Cargar las credenciales de Mercado Pago y probar un pago de prueba
+     de punta a punta.
+  3. Publicar el APK 1.5 desde el panel (pestaña App) con sus novedades,
+     crear tu licencia de cortesía y reinstalar el APK en tu celular
+     (hacer antes la copia de seguridad desde la app).
+  4. Borrar el APK público del servidor y su link en el sitio. Sin esto
+     la protección no sirve.
+  5. Probar con celulares reales (ver GUIA_DE_PRUEBAS_Licencias.txt) y
+     recién ahí prender la licencia obligatoria (LICENSE_REQUIRED=true)
+     y publicar la web.
+  6. Definir precio y forma de contacto, y corregir el texto "Gratis"
+     del sitio (sitio-lite/index.html).
+  7. Más adelante: suscripción con débito automático, control "duro"
+     que también cierre la web, varios dispositivos por licencia en el
+     diseño del certificado y revocación inmediata.
 
 IMPORTANTE: respaldá la carpeta zscore-keys (está en tu usuario de
 Windows: C:\Users\juan.derosas\zscore-keys) en un lugar seguro fuera de

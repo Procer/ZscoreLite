@@ -9,7 +9,7 @@ import { startLive, finishLive } from './live.js';
 import { getInProgressMatch, getLastFinishedMatch, saveMatch } from './db.js';
 import { replayMatch } from './scoring-engine.js';
 import { renderStatsCard } from './match-stats-view.js';
-import { checkLicense, startLicenseWatch, onLicenseChange, isBlocked, getLicense, activate, bannerText, checkUpdate, openDownload } from './license.js';
+import { checkLicense, startLicenseWatch, onLicenseChange, isBlocked, getLicense, activate, startTrial, bannerText, checkUpdate, openDownload } from './license.js';
 import { copyMatchImage, copyResultMessage } from './share-image.js';
 
 const views = ['pin', 'license', 'home', 'setup', 'scoreboard', 'summary', 'history', 'settings'];
@@ -276,6 +276,8 @@ function renderLicenseView() {
     ? 'Renovala o activá un código nuevo para seguir usando la app'
     : 'Escribí el código que recibiste';
   document.getElementById('license-msg').textContent = '';
+  // La prueba solo se ofrece a quien nunca tuvo licencia en este celular (si ya la usó, el servidor lo rechaza igual).
+  document.getElementById('license-trial').style.display = getLicense().status === 'none' ? '' : 'none';
   document.getElementById('license-extra').classList.add('is-shown');
 }
 
@@ -337,6 +339,18 @@ function initLicenseUi() {
     btn.textContent = 'Activar';
     if (!result.ok) { msg.textContent = result.message; return; }
     input.value = '';
+    showView('home');
+  });
+
+  const trial = document.getElementById('license-trial');
+  trial.addEventListener('click', async () => {
+    msg.textContent = '';
+    trial.disabled = true;
+    trial.textContent = 'Activando…';
+    const result = await startTrial();
+    trial.disabled = false;
+    trial.textContent = 'Probar gratis';
+    if (!result.ok) { msg.textContent = result.message; return; }
     showView('home');
   });
 

@@ -2,20 +2,25 @@
 //
 //   POST /api/license/activar  { code, device }  -> { token }
 //   POST /api/license/renovar  { token, device } -> { token }
+//   POST /api/license/prueba   { device }        -> { token, days } (prueba por autoservicio: 1 por dispositivo)
 //   POST /api/license/version  { token, device } -> { versionName, versionCode, url } (APK vigente + link corto de descarga)
 //   GET  /api/license/descargar?t=LINK           -> el APK (link personal de una licencia al día)
 //
-// Errores: { error: 'codigo' | 'en_uso' | 'vencida' | 'revocada' | 'demasiados' }.
+// Errores: { error: 'codigo' | 'en_uso' | 'vencida' | 'revocada' | 'demasiados' | 'prueba_usada' | 'prueba_limite' | 'sin_prueba' }.
 // La app (www/js/license.js) valida el token sin internet con la clave pública.
-// Las licencias se crean y administran con license-admin.cjs.
+// Las licencias se crean y administran con license-admin.cjs o desde el panel (/admin, ver license-panel.cjs).
 //
-// Variables de entorno: PORT (3721), HOST (127.0.0.1), DATA_DIR, PRIVATE_KEY_FILE.
+// Variables de entorno: PORT (3721), HOST (127.0.0.1), DATA_DIR, PRIVATE_KEY_FILE, TRIAL_DAYS (14; 0 apaga las pruebas).
 
 'use strict';
 
 const http = require('http');
 const fs = require('fs');
+const crypto = require('crypto');
 const lib = require('./license-lib.cjs');
+const ops = require('./license-ops.cjs');
+const pay = require('./license-pay.cjs');
+const panel = require('./license-panel.cjs');
 
 const PORT = Number(process.env.PORT || 3721);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -59,7 +64,7 @@ function readBody(req) {
   });
 }
 
-const ERROR_STATUS = { codigo: 404, en_uso: 409, vencida: 402, revocada: 403, demasiados: 429 };
+const ERROR_STATUS = { codigo: 404, en_uso: 409, vencida: 402, revocada: 403, demasiados: 429, prueba_usada: 409, prueba_limite: 429, sin_prueba: 404 };
 
 function fail(res, ip, error, { count = true } = {}) {
   if (count) noteFail(ip);
@@ -83,9 +88,10 @@ function activar(body, ip, res) {
     if (!known) {
       if (lic.devices.length >= lic.maxDevices) return { error: 'en_uso', count: false };
       lic.devices.push({ id: body.device, activatedAt: Date.now() });
+      lib.addEvent(lic, 'dispositivo', 'app', `activado ${body.device.slice(0, 8)} (${lic.devices.length}/${lic.maxDevices})`);
     }
     lic.lastSeenAt = Date.now();
-    return { token: lib.signToken(lic, body.device) };
+    return { token: lib.issueToken(lic, body.device) };
   });
 
   if (outcome.error) return fail(res, ip, outcome.error, { count: outcome.count !== false });
@@ -103,11 +109,59 @@ function renovar(body, ip, res) {
     const blocked = lib.blockReason(lic);
     if (blocked) return { error: blocked, count: false };
     lic.lastSeenAt = Date.now();
-    return { token: lib.signToken(lic, payload.dev) };
+    return { token: lib.issueToken(lic, payload.dev) };
   });
 
   if (outcome.error) return fail(res, ip, outcome.error, { count: outcome.count !== false });
   return send(res, 200, { token: outcome.token });
+}
+
+// ---------- Prueba por autoservicio ----------
+// Un celular nuevo pide su prueba y recibe una licencia 'prueba' ya activada. Una por dispositivo, y tope por
+// conexión y por día para que no se pueda regalar licencias a granel. TRIAL_DAYS=0 apaga las pruebas.
+
+const TRIAL_DAYS = process.env.TRIAL_DAYS === undefined ? 14 : Number(process.env.TRIAL_DAYS);
+const TRIALS_PER_IP = 3;
+const TRIAL_IP_WINDOW = 30 * lib.DAY;
+const TRIALS_PER_DAY = 300;
+
+/** Huella corta: no se guardan IPs ni ids de dispositivo en claro en la lista de pruebas. */
+const fingerprint = (value) => crypto.createHash('sha256').update(`zs-prueba:${value}`).digest('hex').slice(0, 24);
+
+function prueba(body, ip, res) {
+  if (!(TRIAL_DAYS > 0)) return send(res, 404, { error: 'sin_prueba' });
+  if (!validDevice(body.device)) return fail(res, ip, 'codigo');
+
+  const outcome = lib.update((db) => {
+    const now = Date.now();
+    const deviceKey = fingerprint(body.device);
+    const known = db.trials[deviceKey];
+    if (known) {
+      // Mismo celular pidiendo de nuevo (perdió el certificado): se le devuelve su prueba si sigue en curso.
+      const lic = db.licenses[known.code];
+      if (lic && lic.devices.some((d) => d.id === body.device) && !lib.blockReason(lic)) {
+        lic.lastSeenAt = now;
+        return { token: lib.issueToken(lic, body.device) };
+      }
+      return { error: 'prueba_usada' };
+    }
+    const ipKey = fingerprint(`ip:${ip}`);
+    const recent = (db.trialIps[ipKey] || []).filter((t) => now - t < TRIAL_IP_WINDOW);
+    const today = Object.values(db.trials).filter((t) => now - t.at < lib.DAY).length;
+    if (recent.length >= TRIALS_PER_IP || today >= TRIALS_PER_DAY) return { error: 'prueba_limite' };
+
+    const lic = ops.crear(db, { type: 'prueba', days: TRIAL_DAYS, note: 'Prueba autoservicio' }, 'app');
+    lic.devices.push({ id: body.device, activatedAt: now });
+    lic.lastSeenAt = now;
+    lib.addEvent(lic, 'dispositivo', 'app', `activado ${body.device.slice(0, 8)} (1/${lic.maxDevices})`);
+    db.trials[deviceKey] = { at: now, code: lic.code };
+    db.trialIps[ipKey] = [...recent, now];
+    for (const [k, list] of Object.entries(db.trialIps)) if (list.every((t) => now - t >= TRIAL_IP_WINDOW)) delete db.trialIps[k];
+    return { token: lib.issueToken(lic, body.device) };
+  });
+
+  if (outcome.error) return fail(res, ip, outcome.error, { count: false });
+  return send(res, 200, { token: outcome.token, days: TRIAL_DAYS });
 }
 
 const APP_LINK_MINUTES = 15; // vigencia del link que la app pide para actualizarse
@@ -175,13 +229,23 @@ async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const route = url.pathname.replace(/\/+$/, '');
 
+  // Aviso de pago de Mercado Pago (tiene su propia validación de firma)
+  if (route === '/api/license/pago') {
+    const ip = clientIp(req);
+    if (tooManyFails(ip)) return send(res, 429, { error: 'demasiados' });
+    return pay.handleWebhook(req, res, url, () => noteFail(ip));
+  }
+
+  // Panel de administración (página y API): tiene su propia autenticación y límites.
+  if (panel.handles(route)) return panel.handle(req, res, url, route, clientIp(req));
+
   if (req.method === 'GET' && route === '/api/license/descargar') {
     const ip = clientIp(req);
     if (tooManyFails(ip)) return page(res, 429, 'Demasiados intentos. Probá de nuevo en una hora.');
     return descargar(url, ip, res);
   }
 
-  if (req.method !== 'POST' || !['/api/license/activar', '/api/license/renovar', '/api/license/version'].includes(route)) {
+  if (req.method !== 'POST' || !['/api/license/activar', '/api/license/renovar', '/api/license/version', '/api/license/prueba'].includes(route)) {
     return send(res, 404, { error: 'no encontrado' });
   }
 
@@ -196,10 +260,11 @@ async function handle(req, res) {
 
   if (route.endsWith('activar')) return activar(body, ip, res);
   if (route.endsWith('renovar')) return renovar(body, ip, res);
+  if (route.endsWith('prueba')) return prueba(body, ip, res);
   return version(body, ip, res);
 }
 
-http.createServer((req, res) => {
+http.createServer({ requestTimeout: 15 * 60000 }, (req, res) => { // el panel recibe el APK (decenas de MB)
   handle(req, res).catch((e) => {
     console.error('error:', e);
     if (!res.headersSent) send(res, 500, { error: 'error interno' });

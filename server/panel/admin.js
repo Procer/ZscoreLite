@@ -1,0 +1,708 @@
+// Panel de licencias de Z-Score Lite. Sin librerías: arma el DOM con h() y usa solo textContent
+// (nada de innerHTML), porque la página corre con una CSP estricta y muestra datos de clientes.
+'use strict';
+
+const DAY = 86400000;
+const WARN_DAYS = 7;
+const TRIAL_WARN_DAYS = 3;
+const PAY_STATUS = { monto_incorrecto: 'monto distinto al del link', refunded: 'reintegrado', charged_back: 'contracargo', cancelled: 'cancelado' };
+const NEVER_ACTIVATED_DAYS = 2;
+
+const TYPE_NAME = { paga: 'Paga', prueba: 'Prueba', cortesia: 'Cortesía' };
+const STATE_NAME = { activa: 'Activa', vencida: 'Vencida', revocada: 'Revocada' };
+const ERROR_TEXT = {
+  credenciales: 'Usuario o contraseña incorrectos.',
+  demasiados: 'Demasiados intentos. Esperá unos minutos.',
+  sin_clave: 'Todavía no hay una contraseña creada. En el servidor: node license-admin.cjs panel-clave',
+  sesion: 'La sesión venció. Ingresá de nuevo.',
+  csrf: 'La sesión no es válida. Recargá la página.',
+  origen: 'Pedido rechazado (origen distinto).',
+  clave_actual: 'La contraseña actual no es correcta.',
+};
+
+const app = document.getElementById('app');
+const state = {
+  csrf: null, user: null, licenses: [], apk: { published: false }, pagos: { configured: false, month: [], review: [] }, loadedAt: 0,
+  tab: 'resumen', filter: { q: '', estado: '', tipo: '' }, sort: { key: 'createdAt', dir: -1 },
+};
+
+// ---------- Utilidades ----------
+
+function h(tag, props = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, '');
+    else el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : String(kid));
+  return el;
+}
+
+const fmtDate = (ms) => (ms == null ? '—' : new Date(ms).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+const fmtDateTime = (ms) => (ms == null ? 'nunca' : new Date(ms).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }));
+const money = (n, cur) => (n == null ? '—' : `${new Intl.NumberFormat('es-AR').format(n)} ${cur || ''}`.trim());
+
+function daysLeft(lic) {
+  return lic.paidUntil == null ? null : Math.ceil((lic.paidUntil - Date.now()) / DAY);
+}
+
+function toast(text, bad = false) {
+  let box = document.querySelector('.toasts');
+  if (!box) { box = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.append(box); }
+  const t = h('div', { class: `toast${bad ? ' bad' : ''}`, text });
+  box.append(t);
+  setTimeout(() => t.remove(), bad ? 7000 : 3500);
+}
+
+async function copy(text, what = 'Copiado') {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(what);
+  } catch (e) {
+    toast('No se pudo copiar. Seleccionalo y copialo a mano.', true);
+  }
+}
+
+class ApiError extends Error {
+  constructor(code, message, status) { super(message); this.code = code; this.status = status; }
+}
+
+async function api(method, path, body, extra = {}) {
+  let res;
+  try {
+    res = await fetch(`/api/admin${path}`, {
+      method,
+      credentials: 'same-origin',
+      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(state.csrf ? { 'X-CSRF': state.csrf } : {}), ...extra.headers },
+      body: extra.rawBody !== undefined ? extra.rawBody : (body !== undefined ? JSON.stringify(body) : undefined),
+    });
+  } catch (e) {
+    throw new ApiError('red', 'No hay conexión con el servidor.', 0);
+  }
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* sin cuerpo */ }
+  if (res.ok) return data;
+  const code = data.error || 'error';
+  if (res.status === 401 && code === 'sesion') { state.csrf = null; showLogin(ERROR_TEXT.sesion); }
+  throw new ApiError(code, ERROR_TEXT[code] || data.error || 'Algo salió mal.', res.status);
+}
+
+/** Corre una acción, avisa el error y deja el botón sin trabarse. */
+async function run(button, fn) {
+  if (button) button.disabled = true;
+  try { return await fn(); } catch (e) {
+    if (!(e instanceof ApiError && e.code === 'sesion')) toast(e.message || 'Algo salió mal.', true);
+    return undefined;
+  } finally { if (button) button.disabled = false; }
+}
+
+// ---------- Ingreso ----------
+
+function showLogin(message = '') {
+  document.querySelectorAll('dialog').forEach((d) => d.close());
+  const err = h('p', { class: 'error', role: 'alert', text: message });
+  const user = h('input', { id: 'u', name: 'user', autocomplete: 'username', value: 'admin', required: true });
+  const pass = h('input', { id: 'p', name: 'password', type: 'password', autocomplete: 'current-password', required: true });
+  const submit = h('button', { class: 'btn primary', type: 'submit', text: 'Ingresar' });
+  const form = h('form', {
+    onsubmit: async (ev) => {
+      ev.preventDefault();
+      err.textContent = '';
+      submit.disabled = true;
+      try {
+        const r = await api('POST', '/login', { user: user.value, password: pass.value });
+        state.csrf = r.csrf;
+        state.user = r.user;
+        await load();
+        showApp();
+      } catch (e) {
+        err.textContent = e.message;
+        pass.value = '';
+      } finally { submit.disabled = false; }
+    },
+  },
+  h('h1', { text: 'Z-Score Lite' }),
+  h('p', { class: 'hint', text: 'Panel de licencias' }),
+  h('label', {}, 'Usuario', user),
+  h('label', {}, 'Contraseña', pass),
+  err, submit);
+  app.replaceChildren(h('div', { class: 'login' }, form));
+  pass.focus();
+}
+
+// ---------- Datos ----------
+
+async function load() {
+  const [r, pagos] = await Promise.all([api('GET', '/licenses'), api('GET', '/pagos')]);
+  state.licenses = r.licenses;
+  state.apk = r.apk;
+  state.pagos = pagos;
+  state.loadedAt = Date.now();
+}
+
+function upsert(lic) {
+  const i = state.licenses.findIndex((l) => l.code === lic.code);
+  const { deviceList, events, ...summary } = lic;
+  if (i >= 0) state.licenses[i] = summary; else state.licenses.push(summary);
+}
+
+// ---------- Estructura general ----------
+
+const TABS = [['resumen', 'Resumen'], ['licencias', 'Licencias'], ['apk', 'App (APK)'], ['ayuda', 'Ayuda']];
+
+function showApp() {
+  const tabs = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([id, label]) => h('button', {
+    class: 'tab', role: 'tab', 'aria-selected': String(state.tab === id), text: label,
+    onclick: () => { state.tab = id; showApp(); },
+  })));
+  const top = h('header', { class: 'top' }, h('div', { class: 'wrap' },
+    h('div', { class: 'brand' }, 'Z-Score ', h('span', { text: 'Lite' })),
+    tabs,
+    h('span', { class: 'who', text: state.user || '' }),
+    h('button', { class: 'btn small', text: 'Contraseña', onclick: openPassword }),
+    h('button', { class: 'btn small', text: 'Actualizar', onclick: (ev) => run(ev.currentTarget, async () => { await load(); showApp(); toast('Actualizado'); }) }),
+    h('button', {
+      class: 'btn small', text: 'Salir',
+      onclick: async () => { try { await api('POST', '/logout', {}); } catch (e) { /* igual se sale */ } state.csrf = null; showLogin(); },
+    })));
+  const view = { resumen: viewSummary, licencias: viewLicenses, apk: viewApk, ayuda: viewHelp }[state.tab]();
+  app.replaceChildren(top, h('main', { class: 'wrap' }, view));
+}
+
+// ---------- Resumen ----------
+
+function classify(l) {
+  const left = daysLeft(l);
+  return {
+    expiring: l.state === 'activa' && l.type !== 'cortesia' && left != null && left <= WARN_DAYS,
+    trialEnding: l.type === 'prueba' && l.state === 'activa' && left != null && left <= TRIAL_WARN_DAYS,
+    trialExpired: l.type === 'prueba' && l.state === 'vencida',
+    unpaid: l.type === 'paga' && l.state === 'vencida',
+    neverActivated: l.state === 'activa' && l.devices === 0 && Date.now() - l.createdAt > NEVER_ACTIVATED_DAYS * DAY,
+  };
+}
+
+function goLicenses(filter) {
+  state.tab = 'licencias';
+  state.filter = { q: '', estado: '', tipo: '', ...filter };
+  showApp();
+}
+
+function viewSummary() {
+  const all = state.licenses;
+  const by = (fn) => all.filter(fn);
+  const active = by((l) => l.state === 'activa');
+  const worth = {};
+  for (const l of active.filter((x) => x.type === 'paga' && x.price != null)) worth[l.currency] = (worth[l.currency] || 0) + l.price;
+  const worthText = Object.keys(worth).length ? Object.entries(worth).map(([c, n]) => money(n, c)).join(' + ') : '—';
+
+  const stat = (n, label, cls, filter) => h('button', { class: `stat ${cls || ''}`, onclick: () => goLicenses(filter) }, h('span', { class: 'n', text: String(n) }), h('span', { class: 'l', text: label }));
+  const stats = h('div', { class: 'stats' },
+    stat(active.length, 'Activas', 'good', { estado: 'activa' }),
+    stat(by((l) => classify(l).expiring).length, `Vencen en ${WARN_DAYS} días`, 'warn', { estado: 'porvencer' }),
+    stat(by((l) => l.state === 'vencida').length, 'Vencidas', 'bad', { estado: 'vencida' }),
+    stat(by((l) => l.state === 'revocada').length, 'Revocadas', '', { estado: 'revocada' }),
+    stat(by((l) => l.type === 'prueba' && l.state === 'activa').length, 'Pruebas en curso', '', { tipo: 'prueba', estado: 'activa' }),
+    stat(by((l) => l.type === 'cortesia').length, 'Cortesías', '', { tipo: 'cortesia' }),
+    h('div', { class: 'stat' }, h('span', { class: 'n money', text: worthText }), h('span', { class: 'l', text: 'Pagas activas (precio cargado)' })),
+    h('div', { class: 'stat' }, h('span', { class: 'n money', text: state.pagos.month.length ? state.pagos.month.map((m) => money(m.total, m.currency)).join(' + ') : '—' }),
+      h('span', { class: 'l', text: state.pagos.configured ? 'Cobrado este mes (Mercado Pago)' : 'Cobrado este mes (Mercado Pago sin activar)' })));
+
+  const group = (title, list, describe) => h('section', { class: 'card' },
+    h('h3', { text: `${title} (${list.length})` }),
+    list.length ? h('div', { class: 'todo' }, list.slice(0, 8).map((l) => h('button', { class: 'todo-item', onclick: () => openDetail(l.code) },
+      h('span', { class: 'mono', text: l.code }),
+      h('span', { class: 'grow', text: l.customer || l.note || '—' }),
+      h('span', { class: 'muted', text: describe(l) })))) : h('p', { class: 'empty', text: 'Nada por ahora.' }),
+    list.length > 8 ? h('p', { class: 'hint', text: `y ${list.length - 8} más en Licencias` }) : null);
+
+  const left = (l) => { const d = daysLeft(l); return d <= 0 ? 'vence hoy' : `${d} día${d === 1 ? '' : 's'}`; };
+  return h('div', { class: 'stack' },
+    h('div', { class: 'section-head' }, h('h2', { text: 'Resumen' }),
+      h('button', { class: 'btn primary', text: 'Nueva licencia', onclick: openCreate })),
+    stats,
+    h('h2', { text: 'Para atender' }),
+    h('div', { class: 'stack' },
+      state.pagos.review.length ? group('Pagos de Mercado Pago para revisar', state.pagos.review.map((p) => ({ code: p.code, customer: (state.licenses.find((l) => l.code === p.code) || {}).customer, note: '', status: p.status })),
+        (l) => PAY_STATUS[l.status] || l.status) : null,
+      group('Por vencer', by((l) => classify(l).expiring).sort((a, b) => a.paidUntil - b.paidUntil), left),
+      group('Pagas vencidas: cobrar o dar de baja', by((l) => classify(l).unpaid).sort((a, b) => b.paidUntil - a.paidUntil), (l) => `venció ${fmtDate(l.paidUntil)}`),
+      group('Pruebas por terminar o terminadas: convertir', by((l) => classify(l).trialEnding || classify(l).trialExpired).sort((a, b) => a.paidUntil - b.paidUntil),
+        (l) => (l.state === 'vencida' ? `terminó ${fmtDate(l.paidUntil)}` : left(l))),
+      group('Sin activar todavía', by((l) => classify(l).neverActivated).sort((a, b) => a.createdAt - b.createdAt), (l) => `creada ${fmtDate(l.createdAt)}`)));
+}
+
+// ---------- Licencias ----------
+
+function matches(l) {
+  const { q, estado, tipo } = state.filter;
+  if (tipo && l.type !== tipo) return false;
+  if (estado === 'porvencer') { if (!classify(l).expiring) return false; } else if (estado && l.state !== estado) return false;
+  if (q) {
+    const hay = `${l.code} ${l.customer} ${l.contact} ${l.note}`.toLowerCase();
+    if (!q.toLowerCase().split(/\s+/).every((w) => hay.includes(w))) return false;
+  }
+  return true;
+}
+
+const COLUMNS = [
+  ['code', 'Código', (l) => h('span', { class: 'mono', text: l.code })],
+  ['customer', 'Cliente', (l) => h('span', { text: l.customer || l.note || '—' }), 'clip'],
+  ['type', 'Tipo', (l) => h('span', { class: `badge ${l.type}`, text: TYPE_NAME[l.type] })],
+  ['state', 'Estado', (l) => h('span', { class: `badge ${l.state}`, text: STATE_NAME[l.state] })],
+  ['paidUntil', 'Vence', (l) => h('span', { text: l.paidUntil == null ? 'sin vencimiento' : fmtDate(l.paidUntil) })],
+  ['devices', 'Disp.', (l) => h('span', { text: `${l.devices}/${l.maxDevices}` })],
+  ['lastSeenAt', 'Última conexión', (l) => h('span', { class: 'muted', text: fmtDateTime(l.lastSeenAt) })],
+];
+
+function compare(a, b, key) {
+  const va = a[key];
+  const vb = b[key];
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1; // lo vacío (sin vencimiento, nunca conectó) al final
+  if (vb == null) return -1;
+  return typeof va === 'string' ? va.localeCompare(vb, 'es') : va - vb;
+}
+
+function viewLicenses() {
+  const tbody = h('tbody');
+  const count = h('span', { class: 'muted' });
+  const paint = () => {
+    const rows = state.licenses.filter(matches).sort((a, b) => compare(a, b, state.sort.key) * state.sort.dir);
+    count.textContent = `${rows.length} de ${state.licenses.length}`;
+    tbody.replaceChildren(...rows.map((l) => h('tr', { tabindex: '0', onclick: () => openDetail(l.code), onkeydown: (ev) => { if (ev.key === 'Enter') openDetail(l.code); } },
+      COLUMNS.map(([, , cell, cls]) => h('td', { class: cls }, cell(l))))));
+    if (!rows.length) tbody.replaceChildren(h('tr', {}, h('td', { colspan: String(COLUMNS.length), class: 'empty', text: 'No hay licencias con ese filtro.' })));
+  };
+  const q = h('input', { type: 'search', placeholder: 'Código, cliente, contacto o nota', value: state.filter.q, 'aria-label': 'Buscar' });
+  q.addEventListener('input', () => { state.filter.q = q.value; paint(); });
+  const select = (key, label, options) => {
+    const el = h('select', { 'aria-label': label }, options.map(([v, t]) => h('option', { value: v, text: t, selected: state.filter[key] === v })));
+    el.addEventListener('change', () => { state.filter[key] = el.value; paint(); });
+    return el;
+  };
+  const head = h('tr', {}, COLUMNS.map(([key, label]) => h('th', {
+    scope: 'col', text: label + (state.sort.key === key ? (state.sort.dir > 0 ? ' ▲' : ' ▼') : ''),
+    onclick: () => { state.sort = { key, dir: state.sort.key === key ? -state.sort.dir : 1 }; showApp(); },
+  })));
+  paint();
+  return h('div', { class: 'stack' },
+    h('div', { class: 'section-head' }, h('h2', { text: 'Licencias' }), count, h('span', { class: 'spacer' }),
+      h('button', { class: 'btn primary', text: 'Nueva licencia', onclick: openCreate })),
+    h('div', { class: 'row' }, h('label', { class: 'grow2' }, 'Buscar', q),
+      h('label', {}, 'Estado', select('estado', 'Estado', [['', 'Todos'], ['activa', 'Activas'], ['porvencer', `Vencen en ${WARN_DAYS} días`], ['vencida', 'Vencidas'], ['revocada', 'Revocadas']])),
+      h('label', {}, 'Tipo', select('tipo', 'Tipo', [['', 'Todos'], ['paga', 'Pagas'], ['prueba', 'Pruebas'], ['cortesia', 'Cortesías']]))),
+    h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, head), tbody)));
+}
+
+// ---------- Crear ----------
+
+function dialog(content, onClose) {
+  const dlg = h('dialog', {}, h('div', { class: 'dlg' }, content));
+  dlg.addEventListener('close', () => { dlg.remove(); if (onClose) onClose(); });
+  dlg.addEventListener('click', (ev) => { if (ev.target === dlg) dlg.close(); }); // clic en el fondo
+  document.body.append(dlg);
+  dlg.showModal();
+  return dlg;
+}
+
+function field(label, el) { return h('label', {}, label, el); }
+
+function openCreate() {
+  const f = {
+    type: h('select', {}, [['paga', 'Paga (30 días)'], ['prueba', 'Prueba (14 días)'], ['cortesia', 'Cortesía (no vence)']].map(([v, t]) => h('option', { value: v, text: t }))),
+    days: h('input', { type: 'number', min: '1', step: '1', placeholder: 'por defecto del tipo' }),
+    customer: h('input', { maxlength: '120', placeholder: 'Club o persona' }),
+    contact: h('input', { maxlength: '120', placeholder: 'Teléfono o mail' }),
+    price: h('input', { type: 'number', min: '0', step: 'any' }),
+    currency: h('input', { maxlength: '3', value: 'ARS' }),
+    maxDevices: h('input', { type: 'number', min: '1', step: '1', value: '1' }),
+    note: h('input', { maxlength: '300', placeholder: 'Nota interna' }),
+  };
+  f.type.addEventListener('change', () => { f.days.disabled = f.type.value === 'cortesia'; });
+  const out = h('div');
+  const submit = h('button', { class: 'btn primary', type: 'submit', text: 'Crear licencia' });
+  const dlg = dialog(h('form', {
+    class: 'stack',
+    onsubmit: (ev) => {
+      ev.preventDefault();
+      run(submit, async () => {
+        const body = Object.fromEntries(Object.entries(f).map(([k, el]) => [k, el.value]));
+        if (!body.days || f.days.disabled) delete body.days; else body.days = Number(body.days);
+        body.maxDevices = Number(body.maxDevices);
+        body.price = body.price === '' ? null : Number(body.price);
+        const lic = await api('POST', '/licenses', body);
+        upsert(lic);
+        out.replaceChildren(h('div', { class: 'card' },
+          h('p', { class: 'muted', text: 'Licencia creada. Código para entregar:' }),
+          h('p', { class: 'mono code-big', text: lic.code }),
+          h('div', { class: 'row' },
+            h('button', { class: 'btn', type: 'button', text: 'Copiar código', onclick: () => copy(lic.code, 'Código copiado') }),
+            h('button', { class: 'btn', type: 'button', text: 'Abrir ficha', onclick: () => { dlg.close(); openDetail(lic.code); } }))));
+        submit.hidden = true;
+        showApp();
+      });
+    },
+  },
+  h('div', { class: 'dlg-head' }, h('h2', { text: 'Nueva licencia' }), h('span', { class: 'spacer' }), h('button', { class: 'btn small', type: 'button', text: 'Cerrar', onclick: () => dlg.close() })),
+  h('div', { class: 'row' }, field('Tipo', f.type), field('Días', f.days)),
+  h('p', { class: 'hint', text: 'Días vacío usa el valor del tipo (paga 30, prueba 14). La cortesía no vence. Cliente, contacto, precio y nota son solo para vos.' }),
+  h('div', { class: 'row' }, field('Cliente', f.customer), field('Contacto', f.contact)),
+  h('div', { class: 'row' }, field('Precio', f.price), field('Moneda', f.currency), field('Dispositivos', f.maxDevices)),
+  field('Nota', f.note), out, submit));
+}
+
+// ---------- Ficha de una licencia ----------
+
+async function openDetail(code) {
+  let lic;
+  try { lic = await api('GET', `/licenses/${encodeURIComponent(code)}`); } catch (e) {
+    if (!(e instanceof ApiError && e.code === 'sesion')) toast(e.message, true);
+    return;
+  }
+  document.querySelectorAll('dialog[data-detail]').forEach((d) => d.close());
+  const body = h('div', { class: 'dlg' });
+  const dlg = h('dialog', { 'data-detail': code }, body);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.addEventListener('click', (ev) => { if (ev.target === dlg) dlg.close(); });
+  document.body.append(dlg);
+
+  const paint = (current) => {
+    lic = current;
+    upsert(lic);
+    body.replaceChildren(...detailContent(lic, paint, dlg));
+  };
+  paint(lic);
+  dlg.showModal();
+}
+
+function detailContent(lic, paint, dlg) {
+  const act = (button, method, path, payload, okText) => run(button, async () => {
+    const next = await api(method, `/licenses/${encodeURIComponent(lic.code)}${path}`, payload);
+    paint(next);
+    refreshBackground();
+    if (okText) toast(okText);
+  });
+  const small = (text, onclick, cls = '') => h('button', { class: `btn small ${cls}`, type: 'button', text, onclick });
+  const num = (props) => h('input', { type: 'number', min: '1', step: '1', ...props });
+
+  const certText = lic.tokenExp == null
+    ? 'Sin dato (el celular todavía no pidió certificado)'
+    : fmtDate(lic.tokenExp);
+
+  const info = h('dl', { class: 'kv' },
+    kv('Cliente', lic.customer || '—'), kv('Contacto', lic.contact || '—'),
+    kv('Precio', money(lic.price, lic.currency)), kv('Nota', lic.note || '—'),
+    kv('Creada', fmtDate(lic.createdAt)),
+    kv('Vence', lic.paidUntil == null ? 'Sin vencimiento' : `${fmtDate(lic.paidUntil)}${daysLeft(lic) != null ? ` (${daysLeft(lic) >= 0 ? `faltan ${daysLeft(lic)}` : `hace ${-daysLeft(lic)}`} días)` : ''}`),
+    kv('Última conexión', fmtDateTime(lic.lastSeenAt)),
+    kv('Dispositivos', `${lic.devices} de ${lic.maxDevices}`),
+    kv('Certificado del celular vigente hasta', certText));
+
+  // Extender
+  const extDays = num({ value: '30', 'aria-label': 'Días a sumar' });
+  const extender = lic.type === 'cortesia' ? null : h('div', { class: 'action' }, h('h3', { text: 'Registrar pago / extender' }),
+    h('div', { class: 'row' }, field('Días a sumar', extDays),
+      small('Extender', (ev) => act(ev.currentTarget, 'POST', '/extender', { days: Number(extDays.value) }, 'Licencia extendida'), 'primary')),
+    h('p', { class: 'hint', text: 'Si ya venció, cuenta desde hoy. El celular lo toma al renovar su certificado.' }));
+
+  // Convertir
+  const convDays = num({ value: '30', 'aria-label': 'Días de la licencia paga' });
+  const convertir = lic.type === 'paga' ? null : h('div', { class: 'action' }, h('h3', { text: 'Convertir a paga' }),
+    h('div', { class: 'row' }, field('Días', convDays),
+      small('Convertir', (ev) => act(ev.currentTarget, 'POST', '/convertir', { days: Number(convDays.value) }, 'Convertida a paga'), 'primary')));
+
+  // Estado
+  const revoke = () => {
+    const base = `El celular se bloquea cuando termine su certificado actual (${lic.tokenExp ? `hasta el ${fmtDate(lic.tokenExp)}` : 'hasta 32 días'}, más 3 días de gracia). No es inmediato.`;
+    return window.confirm(`¿Revocar ${lic.code}?\n\n${base}`);
+  };
+  const estado = h('div', { class: 'action' }, h('h3', { text: 'Estado y dispositivos' }),
+    h('div', { class: 'row' },
+      lic.state === 'revocada'
+        ? small('Reactivar', (ev) => act(ev.currentTarget, 'POST', '/reactivar', {}, 'Reactivada'))
+        : small('Revocar', (ev) => { if (revoke()) act(ev.currentTarget, 'POST', '/revocar', {}, 'Revocada'); }, 'danger'),
+      small('Liberar dispositivo', (ev) => { if (window.confirm('¿Liberar los dispositivos? El próximo celular que use el código queda asociado (cambio de celular).')) act(ev.currentTarget, 'POST', '/resetear', {}, 'Dispositivos liberados'); })));
+  const maxDev = num({ value: String(lic.maxDevices), 'aria-label': 'Máximo de dispositivos' });
+  estado.append(h('div', { class: 'row' }, field('Máximo de dispositivos', maxDev),
+    small('Guardar', (ev) => act(ev.currentTarget, 'POST', '/dispositivos', { maxDevices: Number(maxDev.value) }, 'Guardado'))));
+
+  // Cobro con Mercado Pago
+  const payAmount = h('input', { type: 'number', min: '0', step: 'any', value: lic.price == null ? '' : String(lic.price), 'aria-label': 'Monto' });
+  const payDays = num({ value: '30', max: '366', 'aria-label': 'Días que paga' });
+  const payOut = h('div');
+  const cobro = (lic.type === 'cortesia' || lic.state === 'revocada') ? null : h('div', { class: 'action' }, h('h3', { text: 'Cobrar con Mercado Pago' }),
+    state.pagos.configured
+      ? h('div', { class: 'stack' },
+        h('div', { class: 'row' }, field(`Monto (${lic.currency})`, payAmount), field('Días que paga', payDays),
+          small('Generar link de pago', (ev) => run(ev.currentTarget, async () => {
+            const r = await api('POST', `/licenses/${encodeURIComponent(lic.code)}/pago`, { amount: payAmount.value === '' ? undefined : Number(payAmount.value), days: Number(payDays.value) });
+            const input = h('input', { readonly: true, value: r.url, 'aria-label': 'Link de pago' });
+            input.addEventListener('focus', () => input.select());
+            payOut.replaceChildren(h('div', { class: 'linkbox' }, input, small('Copiar', () => copy(r.url, 'Link de pago copiado'))),
+              h('p', { class: 'hint', text: `Cobra ${money(r.amount, r.currency)} por ${r.days} días. Mandalo al cliente: cuando paga, la licencia se extiende sola en unos segundos. El link vence en 7 días.` }));
+            paint(await api('GET', `/licenses/${encodeURIComponent(lic.code)}`));
+          }), 'primary')), payOut)
+      : h('p', { class: 'hint', text: 'Todavía no está activado en el servidor (faltan las credenciales de Mercado Pago). Mientras tanto registrá los pagos a mano con "Extender". Mirá la Ayuda.' }));
+
+  // Link
+  const hours = num({ value: '48', max: '720', 'aria-label': 'Horas de vigencia' });
+  const uses = num({ value: '3', max: '20', 'aria-label': 'Descargas' });
+  const linkOut = h('div');
+  const link = h('div', { class: 'action' }, h('h3', { text: 'Link de descarga del APK' }),
+    h('div', { class: 'row' }, field('Vale (horas)', hours), field('Descargas', uses),
+      small('Generar link', (ev) => run(ev.currentTarget, async () => {
+        const r = await api('POST', `/licenses/${encodeURIComponent(lic.code)}/link`, { hours: Number(hours.value), uses: Number(uses.value) });
+        const input = h('input', { readonly: true, value: r.url, 'aria-label': 'Link de descarga' });
+        input.addEventListener('focus', () => input.select());
+        linkOut.replaceChildren(h('div', { class: 'linkbox' }, input, small('Copiar', () => copy(r.url, 'Link copiado'))),
+          h('p', { class: 'hint', text: `Vale ${r.hours} h y ${r.uses} descargas. Mandalo por WhatsApp.` }));
+        paint(await api('GET', `/licenses/${encodeURIComponent(lic.code)}`));
+      }))), linkOut);
+
+  // Editar
+  const e = {
+    customer: h('input', { value: lic.customer, maxlength: '120' }), contact: h('input', { value: lic.contact, maxlength: '120' }),
+    price: h('input', { type: 'number', min: '0', step: 'any', value: lic.price == null ? '' : String(lic.price) }),
+    currency: h('input', { value: lic.currency, maxlength: '3' }), note: h('input', { value: lic.note, maxlength: '300' }),
+  };
+  const editar = h('div', { class: 'action' }, h('h3', { text: 'Datos del cliente' }),
+    h('div', { class: 'row' }, field('Cliente', e.customer), field('Contacto', e.contact)),
+    h('div', { class: 'row' }, field('Precio', e.price), field('Moneda', e.currency)),
+    field('Nota', e.note),
+    h('div', { class: 'row' }, small('Guardar datos', (ev) => act(ev.currentTarget, 'POST', '/editar', {
+      customer: e.customer.value, contact: e.contact.value, note: e.note.value, currency: e.currency.value, price: e.price.value === '' ? '' : Number(e.price.value),
+    }, 'Datos guardados'), 'primary')));
+
+  const devices = h('div', { class: 'action' }, h('h3', { text: 'Dispositivos activados' }),
+    lic.deviceList.length ? lic.deviceList.map((d) => h('p', {}, h('span', { class: 'mono', text: d.id }), h('span', { class: 'muted', text: `  ·  ${fmtDateTime(d.activatedAt)}` })))
+      : h('p', { class: 'empty', text: 'Ninguno todavía.' }));
+
+  const history = h('div', { class: 'action' }, h('h3', { text: 'Historial' }),
+    h('div', { class: 'timeline' }, lic.events.length ? lic.events.map((ev) => h('div', {},
+      h('span', { class: 'muted', text: fmtDateTime(ev.at) }), h('strong', { text: ev.type }), h('span', { class: 'muted', text: ev.actor }), h('span', { text: ev.detail })))
+      : h('p', { class: 'empty', text: 'Sin movimientos.' })));
+
+  return [
+    h('div', { class: 'dlg-head' }, h('h2', { text: lic.code }),
+      h('span', { class: `badge ${lic.type}`, text: TYPE_NAME[lic.type] }), h('span', { class: `badge ${lic.state}`, text: STATE_NAME[lic.state] }),
+      small('Copiar código', () => copy(lic.code, 'Código copiado')), h('span', { class: 'spacer' }),
+      small('Cerrar', () => dlg.close())),
+    info, h('div', { class: 'actions' }, cobro, extender, convertir, estado, link, editar, devices, history),
+  ];
+}
+
+function kv(label, value) {
+  return h('div', {}, h('dt', { text: label }), h('dd', { text: String(value) }));
+}
+
+/** Refresca lo de atrás (tabla/resumen) cuando cambia una licencia desde la ficha. Los diálogos viven fuera de #app. */
+function refreshBackground() {
+  showApp();
+}
+
+// ---------- APK ----------
+
+function viewApk() {
+  const a = state.apk;
+  const info = a.published
+    ? h('dl', { class: 'kv' }, kv('Versión', `${a.versionName} (código ${a.versionCode})`), kv('Publicada', fmtDateTime(a.publishedAt)),
+      kv('Tamaño', a.size ? (a.size < 1048576 ? `${Math.round(a.size / 1024)} KB` : `${(a.size / 1048576).toFixed(1)} MB`) : '—'), kv('sha256', `${a.sha256.slice(0, 16)}…`),
+      h('div', {}, h('dt', { text: 'Novedades' }), h('dd', {}, a.notes.length ? h('ul', { class: 'plain-list' }, a.notes.map((n) => h('li', { text: n }))) : '—')))
+    : h('p', { class: 'empty', text: 'Todavía no hay un APK publicado.' });
+
+  const file = h('input', { type: 'file', accept: '.apk,application/vnd.android.package-archive', required: true });
+  const name = h('input', { placeholder: 'ej. 1.6', maxlength: '20', required: true });
+  const code = h('input', { type: 'number', min: '1', step: '1', required: true, value: a.published ? String(a.versionCode + 1) : '' });
+  const notes = h('textarea', { placeholder: 'Una novedad por línea (hasta 10)' });
+  const bar = h('div', { class: 'progress', hidden: true }, h('div'));
+  const submit = h('button', { class: 'btn primary', type: 'submit', text: 'Publicar versión' });
+  const form = h('form', {
+    class: 'stack',
+    onsubmit: (ev) => {
+      ev.preventDefault();
+      const f = file.files[0];
+      if (!f) return;
+      if (a.published && Number(code.value) < a.versionCode) { toast(`El código tiene que ser ${a.versionCode} o más.`, true); return; }
+      if (!window.confirm(`¿Publicar ${name.value} (código ${code.value})? Las apps con licencia al día la van a ver como actualización.`)) return;
+      run(submit, async () => {
+        bar.hidden = false;
+        try {
+          const qs = new URLSearchParams({ nombre: name.value.trim(), codigo: code.value, notas: notes.value });
+          const r = await api('PUT', `/apk?${qs}`, undefined, { rawBody: f, headers: { 'Content-Type': 'application/vnd.android.package-archive' } });
+          state.apk = r.apk;
+          toast('APK publicado');
+          showApp();
+        } finally { bar.hidden = true; }
+      });
+    },
+  },
+  field('Archivo APK (app-release.apk)', file),
+  h('div', { class: 'row' }, field('Nombre de versión (versionName)', name), field('Código (versionCode)', code)),
+  field('Novedades', notes), bar, submit,
+  h('p', { class: 'hint', text: 'El nombre y el código salen de android/app/build.gradle. El código tiene que ser mayor al de la versión que ya tienen instalada los clientes.' }));
+
+  return h('div', { class: 'stack' }, h('h2', { text: 'App (APK)' }),
+    h('section', { class: 'card stack' }, h('h3', { text: 'Versión vigente' }), info),
+    h('section', { class: 'card stack' }, h('h3', { text: 'Publicar una versión nueva' }), form));
+}
+
+// ---------- Ayuda ----------
+
+function helpSection(title, open, ...content) {
+  return h('details', { class: 'card help', open }, h('summary', { text: title }), h('div', { class: 'help-body' }, ...content));
+}
+
+function viewHelp() {
+  const p = (text) => h('p', { text });
+  const li = (...items) => h('ul', {}, items.map((t) => h('li', { text: t })));
+  const ol = (...items) => h('ol', {}, items.map((t) => h('li', { text: t })));
+  return h('div', { class: 'stack' },
+    h('div', { class: 'section-head' }, h('h2', { text: 'Ayuda' })),
+    h('p', { class: 'hint', text: 'Cómo usar este panel, en orden de lo que más vas a necesitar. Tocá cada título para abrirlo.' }),
+
+    helpSection('Cómo se entrega una licencia (paso a paso)', true,
+      ol('Licencias > Nueva licencia. Elegí el tipo (paga, prueba o cortesía), cargá cliente y contacto, y creala.',
+        'Copiá el código (ZSL-XXXX-XXXX) y mandáselo al cliente por WhatsApp.',
+        'En la ficha de esa licencia, "Link de descarga del APK" > Generar link > Copiar. Mandale también el link: vale unas horas y unas pocas descargas.',
+        'El cliente instala la app, escribe el código una sola vez y queda atado a su celular. En la ficha vas a ver "Dispositivos 1 de 1" y la última conexión.',
+        'Cuando pague de nuevo, entrá a su ficha y usá "Registrar pago / extender".'),
+      p('Importante: hoy la app todavía NO le exige licencia a nadie (esa llave se prende en una etapa posterior, después de probar todo). Mientras tanto el código se puede cargar, pero la app no bloquea.')),
+
+    helpSection('Tipos de licencia', false,
+      li('Paga: dura lo que sumes (30 días por defecto). Se renueva con "Extender" cada vez que paga.',
+        'Prueba: 14 días por defecto, para que el cliente pruebe. Si le gusta, "Convertir a paga".',
+        'Cortesía: no vence. Es para vos, demos y regalos. Se puede revocar como cualquier otra.')),
+
+    helpSection('Estados y qué significan los números del Resumen', false,
+      li('Activa: al día. Vencida: se le terminaron los días. Revocada: la diste de baja a mano.',
+        '"Vencen en 7 días": activas que están por terminar. Conviene avisarles o cobrar antes.',
+        '"Pagas vencidas": clientes que dejaron de pagar. Decidí si cobrar o dar de baja.',
+        '"Pruebas por terminar": ofrecé la conversión a paga antes de que se les corte.',
+        '"Sin activar todavía": creaste el código hace más de 2 días y el cliente no lo usó. Recordáselo.',
+        '"Pagas activas": suma del precio cargado en las licencias pagas al día (solo informativo; no es plata cobrada).')),
+
+    helpSection('Cobrar con Mercado Pago', false,
+      li('En la ficha, "Cobrar con Mercado Pago": confirmá el monto y los días y tocá "Generar link de pago". Copialo y mandáselo al cliente.',
+        'Cuando el cliente paga, Mercado Pago avisa al servidor y la licencia se extiende sola en unos segundos (si era una prueba, pasa a paga). Queda en el historial como "pago" con actor mp.',
+        'Cada link cobra UN período (por ejemplo 30 días). Para el mes siguiente se genera otro link: todavía no hay débito automático.',
+        'El link vence a los 7 días. Un mismo pago nunca suma dos veces.'),
+      p('Seguridad: el servidor verifica la firma del aviso, le pregunta a Mercado Pago por el pago y comprueba que el monto y la moneda sean los del link. Si no coinciden, no suma días y lo deja en "Pagos de Mercado Pago para revisar" (Resumen).'),
+      p('Reintegros y contracargos: se anotan en el historial y aparecen para revisar, pero la licencia NO se corta sola: decidís vos si revocarla.'),
+      p('Si ves "Mercado Pago sin activar", el servidor todavía no tiene las credenciales (ver server/README.md). Mientras tanto usá "Extender".')),
+
+    helpSection('Registrar un pago / extender', false,
+      p('Ponés los días y tocás Extender. Si la licencia todavía está vigente, los días se suman al final; si ya venció, cuentan desde hoy.'),
+      p('El celular toma el cambio solo cuando renueva su certificado (necesita internet, y lo hace a los pocos días de abrir la app). Si el cliente tiene apuro, que entre a Configuración y toque "Renovar ahora".')),
+
+    helpSection('Cuándo se bloquea la app (y por qué no es inmediato)', false,
+      p('La app tiene que funcionar en la cancha sin internet. Por eso guarda un certificado firmado de hasta 32 días y lo renueva sola cuando hay conexión.'),
+      li('Antes de vencer la app avisa (5 días antes).',
+        'Si vence, tiene 3 días de gracia con aviso en rojo.',
+        'Después se bloquea: puede terminar el partido en curso, ver el historial y hacer la copia de seguridad. No pierde datos.'),
+      p('Consecuencia: si revocás o dejás vencer una licencia, el celular se corta cuando termina su certificado actual (hasta 32 días + 3). La ficha muestra "Certificado del celular vigente hasta" para que sepas cuándo.')),
+
+    helpSection('Revocar y reactivar', false,
+      p('Revocar corta el acceso: el celular deja de renovar y se bloquea cuando termine su certificado. Reactivar lo deshace.'),
+      p('Las cortesías también se cortan: aunque la licencia no venza, el celular renueva un certificado de 32 días, y si la revocás deja de renovarlo.')),
+
+    helpSection('Cambio de celular', false,
+      p('El código queda atado al primer celular que lo activa. Si el cliente cambia de teléfono, en su ficha tocá "Liberar dispositivo" y que active el código en el nuevo. Si necesita usarlo en más de un celular a la vez, subí el "Máximo de dispositivos".'),
+      p('Si alguien le pasa el APK a otro y usa el mismo código, el segundo celular recibe "ya está activado en otro dispositivo".')),
+
+    helpSection('Convertir una prueba (o cortesía) a paga', false,
+      p('En la ficha, "Convertir a paga" con los días que pagó. Mantiene lo que le quedaba de la prueba y suma los días nuevos. Queda registrado en el historial.')),
+
+    helpSection('Link de descarga del APK', false,
+      p('El APK ya no está en una dirección pública. Cada link es de UNA licencia, vence (48 horas por defecto), tiene tope de descargas (3) y solo sirve si la licencia está activa. Una licencia vencida o revocada no puede generar link.'),
+      p('Mandalo por WhatsApp. Si se vence o se gasta, generá otro.')),
+
+    helpSection('Publicar una versión nueva de la app (pestaña App)', false,
+      li('Compilá el APK de release (app-release.apk).',
+        'En la pestaña App, elegí el archivo y completá "Nombre de versión" y "Código" tal cual están en android/app/build.gradle (versionName y versionCode).',
+        'El código tiene que ser mayor o igual al publicado: si es menor, las apps instaladas no lo ven como actualización y el panel lo rechaza.',
+        'Escribí las novedades, una por línea: es lo que el cliente lee antes de actualizar.'),
+      p('Las apps con licencia al día preguntan al abrir si hay versión nueva y muestran "Ver novedades" con el botón de descarga. Quien no tiene licencia vigente no se entera.')),
+
+    helpSection('Datos del cliente, precio e historial', false,
+      p('Cliente, contacto, precio y nota son solo para vos (el cliente no los ve). El historial de cada ficha registra quién hizo qué y cuándo: crear, extender, convertir, revocar, activar un celular, generar links.'),
+      p('Para buscar: en Licencias escribí parte del código, del cliente, del contacto o de la nota. Tocá el título de una columna para ordenar.')),
+
+    helpSection('Tu contraseña y la seguridad del panel', false,
+      li('Usuario: admin. La contraseña la elegiste vos; el botón "Contraseña" de arriba la cambia (te pide la actual).',
+        'La sesión se cierra sola a los 30 minutos sin tocar nada, y siempre a las 12 horas.',
+        'Tras 5 intentos fallidos desde una misma conexión, el panel espera 15 minutos.',
+        'Si te olvidás la contraseña, se crea una nueva desde el servidor con: node license-admin.cjs panel-clave (ver server/README.md).',
+        'Salí siempre con el botón "Salir" si usás una computadora que no es tuya.')),
+
+    helpSection('Qué NO hace todavía', false,
+      li('No hace débito automático ni suscripción: cada período se cobra con un link nuevo.',
+        'No manda mails ni WhatsApp: el código y los links los copiás y los mandás vos.',
+        'No tiene gráficos de ingresos ni estadísticas de uso (solo el total cobrado del mes).',
+        'Las pruebas gratis se piden solas desde la app (14 días, una por celular); aparecen acá como "Prueba autoservicio" y sin datos de contacto.')));
+}
+
+// ---------- Cambiar contraseña ----------
+
+function openPassword() {
+  const current = h('input', { type: 'password', autocomplete: 'current-password', required: true });
+  const next = h('input', { type: 'password', autocomplete: 'new-password', required: true, minlength: '12' });
+  const again = h('input', { type: 'password', autocomplete: 'new-password', required: true, minlength: '12' });
+  const err = h('p', { class: 'error', role: 'alert' });
+  const submit = h('button', { class: 'btn primary', type: 'submit', text: 'Cambiar contraseña' });
+  const dlg = dialog(h('form', {
+    class: 'stack',
+    onsubmit: (ev) => {
+      ev.preventDefault();
+      err.textContent = '';
+      if (next.value !== again.value) { err.textContent = 'Las dos contraseñas nuevas no coinciden.'; return; }
+      run(submit, async () => {
+        try {
+          await api('POST', '/password', { current: current.value, next: next.value });
+          toast('Contraseña cambiada. Las otras sesiones abiertas se cerraron.');
+          dlg.close();
+        } catch (e) {
+          if (e instanceof ApiError && e.code === 'sesion') return;
+          err.textContent = e.message;
+          current.value = '';
+        }
+      });
+    },
+  },
+  h('div', { class: 'dlg-head' }, h('h2', { text: 'Cambiar contraseña' }), h('span', { class: 'spacer' }), h('button', { class: 'btn small', type: 'button', text: 'Cerrar', onclick: () => dlg.close() })),
+  field('Contraseña actual', current),
+  field('Contraseña nueva (mínimo 12 caracteres)', next),
+  field('Repetí la nueva', again),
+  h('p', { class: 'hint', text: 'Usá una frase larga que no uses en otro lado. Un gestor de contraseñas ayuda.' }),
+  err, submit));
+  current.focus();
+}
+
+// ---------- Arranque ----------
+
+async function start() {
+  try {
+    const s = await api('GET', '/session');
+    if (s.authenticated) {
+      state.csrf = s.csrf;
+      state.user = s.user;
+      await load();
+      showApp();
+    } else {
+      showLogin(s.configured ? '' : ERROR_TEXT.sin_clave);
+    }
+  } catch (e) {
+    showLogin(e.message);
+  }
+  // Los datos se refrescan solos si la pestaña está a la vista (cambian por los pagos y las activaciones).
+  setInterval(async () => {
+    if (!state.csrf || document.hidden || document.querySelector('dialog[open]')) return;
+    try { await load(); showApp(); } catch (e) { /* si falla, se reintenta en el próximo ciclo */ }
+  }, 60000);
+}
+
+start();

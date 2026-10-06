@@ -143,7 +143,7 @@ Dónde está el APK:
 
 IMPORTANTE: esto toca systemd y nginx del servidor (que es compartido
 con otros sitios). Solo se toca /var/www/zscore/ y el sitio
-zscorelite.anka.ar. Pedime que lo haga yo ([YO]) con tu autorización
+lite.zscore.ar. Pedime que lo haga yo ([YO]) con tu autorización
 expresa, o seguí estos pasos vos. Los archivos están en la carpeta
 "server" del repo.
 
@@ -151,7 +151,7 @@ expresa, o seguí estos pasos vos. Los archivos están en la carpeta
 
        mkdir -p /var/www/zscore/license-server /var/www/zscore/license-data
        # desde la PC (PowerShell, dentro de la carpeta del repo):
-       #   scp server/license-server.cjs server/license-lib.cjs server/license-admin.cjs server/zscore-license.service root@66.97.38.36:/var/www/zscore/license-server/
+       #   scp server/license-server.cjs server/license-lib.cjs server/license-ops.cjs server/license-admin.cjs server/zscore-license.service root@66.97.38.36:/var/www/zscore/license-server/
        #   scp $env:USERPROFILE\zscore-keys\license-private.pem root@66.97.38.36:/var/www/zscore/license-data/
        chown -R www-data:www-data /var/www/zscore/license-server /var/www/zscore/license-data
        chmod 700 /var/www/zscore/license-data
@@ -179,10 +179,10 @@ expresa, o seguí estos pasos vos. Los archivos están en la carpeta
      [ ] OK
 
 3.4  [VPS] nginx: agregar el bloque de server/nginx-license.conf dentro
-     del server de 443 de /etc/nginx/sites-available/zscorelite.anka.ar
+     del server de 443 de /etc/nginx/sites-available/lite.zscore.ar
      (junto al de /api/live). Antes, hacer un respaldo del archivo.
 
-       cp /etc/nginx/sites-available/zscorelite.anka.ar /etc/nginx/sites-available/zscorelite.anka.ar.bak-license
+       cp /etc/nginx/sites-available/lite.zscore.ar /etc/nginx/sites-available/lite.zscore.ar.bak-license
        nginx -t
        systemctl reload nginx
 
@@ -192,11 +192,11 @@ expresa, o seguí estos pasos vos. Los archivos están en la carpeta
 
 3.5  [PC] Probar por fuera (por internet, como lo ve la app)
 
-       curl.exe -s -X POST https://zscorelite.anka.ar/api/license/activar -d "{}"
+       curl.exe -s -X POST https://lite.zscore.ar/api/license/activar -d "{}"
 
      DEBE PASAR: responde {"error":"codigo"}.
      [ ] OK
-     Además abrí https://zscorelite.anka.ar en el navegador y entrá a
+     Además abrí https://lite.zscore.ar en el navegador y entrá a
      la app: DEBE PASAR que se ve normal. [ ] OK
      Y que el partido en vivo siga andando. [ ] OK
 
@@ -270,7 +270,7 @@ expresa, o seguí estos pasos vos. Los archivos están en la carpeta
 
 5.1  Un código no se puede usar en dos celulares
      Necesitás un segundo celular (o el navegador de la PC con la web
-     https://zscorelite.anka.ar -> PIN -> Configuración -> Licencia).
+     https://lite.zscore.ar -> PIN -> Configuración -> Licencia).
      Activá en ese segundo equipo el MISMO código de la licencia paga
      (4.5) que ya activaste en el primero.
      DEBE PASAR: "Ese código ya está activado en otro dispositivo."
@@ -342,7 +342,7 @@ expresa, o seguí estos pasos vos. Los archivos están en la carpeta
      un uso extra: no te asustes si el tope se agota antes.)
      [VPS]  lic link ZSL-XXXX-XXXX --horas 1 --usos 2
      DEBE PASAR: imprime una dirección larga
-     https://zscorelite.anka.ar/api/license/descargar?t=...
+     https://lite.zscore.ar/api/license/descargar?t=...
      [CELULAR o PC] Abrila.
      DEBE PASAR: se baja el archivo zscore-lite-1.5.apk.
      [ ] OK
@@ -483,7 +483,7 @@ licencia activada, vos mismo quedás bloqueado.
 9.2  [CELULAR] Abrir la app con tu licencia de cortesía activada.
      DEBE PASAR: entra normal, sin pedir nada.
      [ ] OK
-9.3  [PC] Abrir https://zscorelite.anka.ar en el navegador de la PC
+9.3  [PC] Abrir https://lite.zscore.ar en el navegador de la PC
      (donde nunca activaste nada).
      DEBE PASAR: tras el PIN aparece la pantalla "Activá tu licencia".
      [ ] OK
@@ -503,7 +503,7 @@ Mientras no se borre, la protección es de adorno.
 
 10.1 [PC] Antes de borrar, ver que existe:
 
-       curl.exe -I https://zscorelite.anka.ar/descargar/zscore-lite.apk
+       curl.exe -I https://lite.zscore.ar/descargar/zscore-lite.apk
 
      Hoy debería dar 200. [ ] (anotá lo que da: ______ )
 
@@ -520,11 +520,11 @@ Mientras no se borre, la protección es de adorno.
      [ ] OK
 
 10.4 Que nadie pueda adivinar la nueva ruta
-     [PC] curl.exe -s -o NUL -w "%{http_code}" https://zscorelite.anka.ar/api/license/descargar
+     [PC] curl.exe -s -o NUL -w "%{http_code}" https://lite.zscore.ar/api/license/descargar
      DEBE PASAR: 403 (página de error, no el archivo).
      [ ] OK
      [PC] Probá un link inventado:
-     curl.exe -s -o NUL -w "%{http_code}" "https://zscorelite.anka.ar/api/license/descargar?t=inventado"
+     curl.exe -s -o NUL -w "%{http_code}" "https://lite.zscore.ar/api/license/descargar?t=inventado"
      DEBE PASAR: 403.
      [ ] OK
 

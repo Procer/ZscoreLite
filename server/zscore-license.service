@@ -8,6 +8,10 @@ User=www-data
 Group=www-data
 Environment=PORT=3721
 Environment=HOST=127.0.0.1
+Environment=PUBLIC_URL=https://lite.zscore.ar
+# Credenciales de Mercado Pago (y TRIAL_DAYS si querés cambiar o apagar las pruebas): archivo aparte, solo root.
+# Se crea a mano; si no existe, el cobro queda apagado. Ver server/README.md.
+EnvironmentFile=-/etc/zscore-license.env
 Environment=DATA_DIR=/var/www/zscore/license-data
 Environment=PRIVATE_KEY_FILE=/var/www/zscore/license-data/license-private.pem
 WorkingDirectory=/var/www/zscore/license-server

@@ -28,6 +28,9 @@ const ERROR_TEXT = {
   revocada: 'Esa licencia fue dada de baja.',
   demasiados: 'Demasiados intentos. Probá de nuevo en una hora.',
   red: 'No hay conexión con el servidor. Probá de nuevo con internet.',
+  prueba_usada: 'Este celular ya usó su prueba. Pedí un código para seguir.',
+  prueba_limite: 'No se pueden pedir más pruebas desde esta conexión. Pedí un código.',
+  sin_prueba: 'Las pruebas no están disponibles por ahora. Pedí un código.',
 };
 
 function b64ToBytes(b64) {
@@ -165,13 +168,29 @@ export async function activate(rawCode) {
   return { ok: true };
 }
 
+/** Pide la prueba gratis de este celular (una por dispositivo). Devuelve { ok, days } o { ok: false, message }. */
+export async function startTrial() {
+  const device = deviceId();
+  const r = await post('prueba', { device });
+  if (!r.ok) return { ok: false, message: ERROR_TEXT[r.error] || ERROR_TEXT.red };
+  const payload = await verifyToken(r.token);
+  if (!payload || payload.dev !== device) return { ok: false, message: 'El servidor devolvió una licencia inválida.' };
+  write({ token: r.token, device, code: payload.code });
+  await evaluate();
+  return { ok: true, days: r.days };
+}
+
 /** Pide un token nuevo (silencioso). Si falla, se sigue con el token actual. */
 export async function renew({ force = false } = {}) {
   const saved = read();
   if (!saved?.token) return false;
   const payload = await verifyToken(saved.token);
-  if (!payload || payload.exp == null) return false; // las cortesías no vencen
-  if (!force && payload.exp - now() > RENEW_DAYS * DAY) return false;
+  if (!payload) return false;
+  // Las cortesías viejas traían un certificado sin vencimiento: se renuevan una vez para pasar al nuevo
+  // (con vencimiento), así una cortesía revocada también se corta.
+  const legacyNoExpiry = payload.exp == null && payload.type === 'cortesia';
+  if (payload.exp == null && !legacyNoExpiry) return false;
+  if (!force && !legacyNoExpiry && payload.exp - now() > RENEW_DAYS * DAY) return false;
   const r = await post('renovar', { token: saved.token, device: saved.device });
   if (!r.ok) return false;
   const fresh = await verifyToken(r.token);
@@ -230,7 +249,7 @@ export function describeLicense(lic = current) {
   const { status, info } = lic;
   if (!info) return '';
   const typeName = { paga: 'Licencia', cortesia: 'Licencia de cortesía', prueba: 'Licencia de prueba' }[info.type] || 'Licencia';
-  if (info.exp == null) return `${typeName} · sin vencimiento`;
+  if (info.exp == null || (info.type === 'cortesia' && status !== 'grace' && status !== 'blocked')) return `${typeName} · sin vencimiento`;
   const fecha = new Date(info.exp).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
   if (status === 'grace' || status === 'blocked') return `${typeName} vencida el ${fecha}`;
   return `${typeName} · vence el ${fecha}`;
