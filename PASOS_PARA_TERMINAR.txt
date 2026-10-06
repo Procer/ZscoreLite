@@ -1,0 +1,365 @@
+﻿=====================================================================
+ Z-SCORE LITE - PASOS PARA TERMINAR (venta online + licencias)
+ Escrito el 06/10/2026
+=====================================================================
+
+COMO USAR ESTE ARCHIVO
+- Hacé los pasos EN ORDEN. Cada uno dice: qué hacés, qué tenés que ver, y
+  qué hacer si no sale.
+- Todos los comandos se escriben en PowerShell, parado en la carpeta:
+      cd C:\laragon\www\zscore\MarcadorLite
+- Cuando algo falle, copiá TODO lo que salió en la pantalla y pegámelo.
+- NUNCA me pegues contraseñas, tokens ni claves. Esos datos se escriben
+  solo en el servidor (paso 6) o en el panel.
+
+LO QUE YA ESTA HECHO Y PROBADO (no tenés que tocarlo)
+- Servicio de licencias, panel de administración, prueba gratis y arreglo
+  de cortesías.
+- Venta online automática: el cliente paga por Mercado Pago, se crea sola
+  su licencia paga, le llega un email con código, link de descarga y
+  pasos, y a vos te llega un aviso. El panel (pestaña Cobros) muestra
+  cada pago con cliente, monto, licencia, vencimiento y estado del email.
+- Aviso por email 5 días antes de vencer, con link para renovar.
+- APK 1.5 compilado y firmado con tu clave de release.
+- 75 pruebas automáticas y una prueba completa en un navegador.
+  Todo eso con Mercado Pago y correo SIMULADOS: falta probarlo con los
+  reales, y para eso son los pasos de abajo.
+
+LO QUE TENÉS QUE DECIDIR ANTES (anotalo, lo vas a necesitar en el paso 7)
+- Precio de la licencia y moneda (ejemplo: 15000 ARS).
+- Cuántos días dura cada pago (ejemplo: 30).
+- Desde qué email se mandan los mensajes (ejemplo: una cuenta de Gmail
+  nueva solo para esto, como zscorelicencias@gmail.com).
+- A qué email querés que te lleguen los avisos de cada venta.
+
+
+=====================================================================
+ PASO 1 - Subir lo nuevo al servidor            (5 minutos)
+=====================================================================
+Comando:
+      .\deploy-licencias.ps1
+
+Qué hace: corre los tests, sube el servicio y el panel, los instala y lo
+verifica desde afuera.
+
+Tenés que ver al final:
+      licencias (esperado 404): 404
+      panel /admin (esperado 200): 200
+      Listo
+
+Si falla: el instalador vuelve solo a la versión anterior. Pegame la
+salida completa.
+
+
+=====================================================================
+ PASO 2 - Publicar el APK y retirar el público  (5 minutos)
+=====================================================================
+Qué es esto: hoy el APK (el instalador de la app) se baja gratis desde
+una dirección pública. Este paso lo sube protegido al servidor (solo se
+entrega con links personales, que son los que van en los emails) y retira
+la copia pública.
+
+Comando:
+      .\publicar-apk.ps1
+
+Qué hace, en orden:
+  1. Revisa el APK en tu PC (versión 1.5 y que esté firmado con tu clave).
+  2. Lo sube y lo publica.
+  3. Comprueba que el del servidor es idéntico al tuyo.
+  4. Prueba de punta a punta: crea una licencia temporal, baja el APK con
+     su link personal, comprueba que el link no sirve dos veces y revoca
+     esa licencia temporal.
+  5. Te pregunta: "Escribí SI para retirarla". Escribí SI y Enter.
+     (La copia pública NO se borra: se mueve a
+      /root/apk-publico-respaldo/ en el servidor.)
+
+Tenés que ver al final:
+      OK  copia publica retirada ...
+      Listo
+
+Si dice que no encontró el archivo público: pegame el mensaje, trae el
+comando para buscarlo.
+Para volver atrás (si hiciera falta devolver la copia pública):
+      ssh root@66.97.38.36 "mv /root/apk-publico-respaldo/zscore-lite-publico.apk /var/www/zscore/lite/descargar/zscore-lite.apk"
+
+Las novedades que lee el cliente al actualizar son las del script (3
+líneas). Si querés otras: .\publicar-apk.ps1 -Notas "Novedad 1|Novedad 2"
+
+
+=====================================================================
+ PASO 3 - Publicar la app web                   (3 minutos)
+=====================================================================
+Qué es esto: la app que corre en https://lite.zscore.ar/app/ todavía NO
+tiene el código de licencias (lo comprobé: ese archivo no existe en el
+servidor). Hay que subir la carpeta www.
+
+Comando:
+      .\deploy-web.ps1 -App
+
+Tenés que ver:
+      OK  la app publicada tiene el codigo de licencias y la prueba gratis
+
+No cambia nada para quien la usa hoy: la llave de "licencia obligatoria"
+sigue apagada (se prende en el paso 11). Guarda una copia de lo anterior
+en el servidor (app.anterior).
+
+Si dice que no encuentra la carpeta del sitio: pegame la salida, trae el
+comando para averiguarlo.
+
+
+=====================================================================
+ PASO 4 - Crear la aplicación en Mercado Pago   (15 minutos)
+=====================================================================
+Necesitás la cuenta de Mercado Pago que va a COBRAR, con la identidad ya
+verificada. (Los nombres de los menús pueden variar un poco: buscá los
+que dice acá.)
+
+ 1. Entrá a https://www.mercadopago.com.ar/developers  e ingresá.
+ 2. "Tus integraciones" > "Crear aplicación".
+      Nombre: Z-Score Lite
+      Tipo de solución / producto: Checkout Pro   (pagos online)
+ 3. Entrá a la aplicación recién creada > "Credenciales de prueba".
+    Copiá el "Access Token" de prueba (empieza con APP_USR-).
+    Guardalo en un archivo de texto TEMPORAL en tu PC (lo borrás en el
+    paso 6). No me lo pegues.
+ 4. En la misma aplicación, menú de la izquierda: "Webhooks" >
+    "Configurar notificaciones".
+      Pestaña "Modo de prueba":
+        URL:     https://lite.zscore.ar/api/license/pago
+        Eventos: tildá "Pagos"
+        Guardar.
+    Al guardar aparece una "Clave secreta" (botón para revelarla).
+    Copiala al mismo archivo temporal.
+ 5. "Cuentas de prueba": creá una cuenta de COMPRADOR de prueba y anotá
+    su usuario y contraseña (los usás en el paso 8).
+
+Resultado: tenés anotados 2 datos: Access Token de prueba y Clave secreta.
+
+
+=====================================================================
+ PASO 5 - Preparar el correo con Gmail          (10 minutos)
+=====================================================================
+(Si preferís un correo de tu dominio, usá los datos SMTP que te da tu
+hosting y salteá este paso: te van a pedir los mismos 5 datos.)
+
+ 1. Creá (o usá) una cuenta de Gmail para mandar los emails.
+ 2. En esa cuenta: https://myaccount.google.com/security
+    Activá la "Verificación en 2 pasos".
+ 3. Entrá a https://myaccount.google.com/apppasswords
+    Nombre: Z-Score Lite  >  Crear.
+    Copiá los 16 caracteres (sin espacios) al archivo temporal.
+
+Resultado: tenés la dirección de Gmail y la contraseña de aplicación.
+
+
+=====================================================================
+ PASO 6 - Cargar los datos en el servidor       (5 minutos)
+=====================================================================
+Conectate al servidor:
+      ssh -t root@66.97.38.36
+
+Ya adentro, escribí estos 2 comandos:
+      install -m 600 /dev/null /etc/zscore-license.env
+      nano /etc/zscore-license.env
+
+Se abre un editor. Escribí estas 7 líneas, cambiando lo que está entre
+los signos < > por tus datos (sin los signos):
+
+      MP_ACCESS_TOKEN=<Access Token de prueba>
+      MP_WEBHOOK_SECRET=<Clave secreta>
+      SMTP_HOST=smtp.gmail.com
+      SMTP_PORT=465
+      SMTP_USER=<tu Gmail completo>
+      SMTP_PASS=<los 16 caracteres, sin espacios>
+      SMTP_FROM=Z-Score Lite <tu Gmail completo>
+
+Guardá: Ctrl+O, Enter, y salí con Ctrl+X.
+
+Reiniciá y comprobá:
+      systemctl restart zscore-license
+      systemctl is-active zscore-license
+(la segunda línea tiene que responder: active)
+      exit
+
+Después BORRÁ el archivo temporal de tu PC.
+
+Si no dice "active":
+      ssh root@66.97.38.36 "journalctl -u zscore-license -n 30 --no-pager"
+y pegame la salida (no contiene tus claves).
+
+
+=====================================================================
+ PASO 7 - Configurar la venta en el panel       (10 minutos)
+=====================================================================
+ 1. Entrá a https://lite.zscore.ar/admin  (usuario: admin, y tu contraseña).
+ 2. Pestaña "Cobros".
+ 3. Arriba tienen que decir "Mercado Pago: listo" y "Envío de emails:
+    listo". Si alguna dice "falta configurar": revisá el paso 6.
+ 4. Completá:
+      Precio de la licencia: el que decidiste
+      Moneda: ARS
+      Días que dura: el que decidiste (ej. 30)
+      Email para avisos de venta: el tuyo
+      Avisar de vencimientos: 5
+    y tocá "Guardar".
+ 5. Tocá "Enviar email de prueba". Tiene que llegarte un email en
+    menos de un minuto (mirá también spam).
+ 6. Aparece el "Link de compra": https://lite.zscore.ar/api/license/comprar
+
+Si el email de prueba no llega: el panel muestra el motivo en rojo (por
+ejemplo contraseña incorrecta). Pegame ese texto.
+
+
+=====================================================================
+ PASO 8 - Compra de prueba                      (10 minutos)
+=====================================================================
+Todavía con las credenciales de PRUEBA (no se cobra nada real).
+
+ 1. Abrí una ventana privada del navegador y pegá el link de compra
+    del paso 7.
+ 2. Mercado Pago te pide ingresar: usá el COMPRADOR de prueba del
+    paso 4 (usuario y contraseña de la cuenta de prueba).
+ 3. Pagá con una tarjeta de prueba: en Mercado Pago Developers, sección
+    "Tarjetas de prueba", están las de Argentina. Usá una Mastercard o
+    Visa de prueba y poné de titular: APRO (así se aprueba).
+ 4. Después de pagar, vas a ver una página "Gracias por tu compra".
+
+En 1 o 2 minutos tiene que pasar todo esto (miralo en el panel,
+botón "Actualizar"):
+  - Cobros: aparece el pago (cliente, monto, licencia, vencimiento).
+  - Licencias: aparece la licencia nueva, tipo Paga.
+  - Te llega el aviso de venta al email que pusiste en "Email para avisos".
+  - El email al cliente se manda al email del comprador de PRUEBA, que no
+    existe de verdad: por eso NO lo vas a recibir. Para ver cómo le llega
+    al cliente: abrí esa licencia (Licencias > tocá la fila), en "Datos
+    del cliente" poné TU email en "Email del cliente" > Guardar datos, y
+    tocá "Enviar instrucciones por email". Revisá tu correo: tiene que
+    traer el código, el vencimiento, el link de descarga y los pasos.
+
+Si el pago no aparece en Cobros: pegame lo que sale de
+      ssh root@66.97.38.36 "journalctl -u zscore-license -n 40 --no-pager"
+(Mercado Pago reintenta el aviso cada 15 minutos si falló.)
+
+
+=====================================================================
+ PASO 9 - Pasar Mercado Pago a producción       (10 minutos)
+=====================================================================
+ 1. En la aplicación de Mercado Pago > "Credenciales de producción".
+    Mercado Pago puede pedirte datos de tu negocio (rubro, sitio web:
+    https://lite.zscore.ar) y que aceptes términos. Completalo y copiá
+    el Access Token de PRODUCCIÓN.
+ 2. "Webhooks" > "Configurar notificaciones" > pestaña "Modo productivo":
+    misma URL (https://lite.zscore.ar/api/license/pago), evento "Pagos",
+    Guardar. Aparece OTRA clave secreta: copiala.
+ 3. En el servidor, cambiá esos 2 valores:
+      ssh -t root@66.97.38.36
+      nano /etc/zscore-license.env
+    (reemplazá MP_ACCESS_TOKEN y MP_WEBHOOK_SECRET; Ctrl+O, Enter,
+     Ctrl+X)
+      systemctl restart zscore-license
+      systemctl is-active zscore-license
+      exit
+ 4. Hacé UNA compra real, la más barata posible (podés poner un precio
+    chico un rato en Cobros), con tu propia tarjeta, y comprobá que llegan
+    los emails y aparece el pago. Después dejá el precio definitivo.
+    (Si querés devolverte esa plata: desde Mercado Pago, reintegro. El
+    panel lo marca "Reintegrado" para que lo revises, no corta la
+    licencia solo.)
+
+
+=====================================================================
+ PASO 10 - Publicar la página de inicio con "Comprar"   (3 minutos)
+=====================================================================
+Hacelo recién cuando los pasos 2, 7, 8 y 9 estén OK.
+
+Comando:
+      .\deploy-web.ps1 -Sitio
+
+Te pregunta "Escribí SI para continuar": escribí SI.
+Esto saca de https://lite.zscore.ar/ el link directo al APK público y pone
+el botón "Comprar licencia" (que lleva al link de compra).
+
+Tenés que ver:
+      OK  pagina de inicio publicada con el boton "Comprar licencia" ...
+
+Antes de publicarla, abrí C:\laragon\www\zscore\sitio-lite\index.html y
+revisá los textos (es un borrador: no puse precio ni teléfono de contacto
+porque no los conozco). Si querés cambiar algo, decímelo y lo hago.
+
+
+=====================================================================
+ PASO 11 - Prender la licencia obligatoria      (cuando lo decidas)
+=====================================================================
+Hasta acá la app NO le pide licencia a nadie. Eso se prende al final.
+
+Antes, probá con tu celular (lo ideal es hacer las pruebas de la guía
+GUIA_DE_PRUEBAS_Licencias.txt). Mínimo:
+  a. En tu celular abrí la app actual > Configuración > hacé la COPIA DE
+     SEGURIDAD y guardá el archivo.
+  b. Desinstalá la app vieja.
+  c. En el panel creá una licencia cortesía para vos (Licencias > Nueva
+     licencia > Cortesía > tu email) y en su ficha tocá "Enviar
+     instrucciones por email".
+  d. Desde el email, instalá el APK con el link personal y abrí la app.
+
+Cuando eso ande, escribime: "prendé la licencia obligatoria". Yo cambio la
+llave, corro los 75 tests y la prueba completa de la app, y te dejo el
+comando final. Después vos:
+      .\deploy-web.ps1 -App
+y probás en el celular que pide el código, lo activa y entra.
+
+Importante: la llave solo debe prenderse con el APK ya protegido (paso 2)
+y la venta funcionando (pasos 7 a 9). Si la prendés antes, tus clientes
+quedarían sin cómo conseguir licencia.
+
+
+=====================================================================
+ PASO 12 - Llaves de firma (tu decisión: quedan en tu PC)
+=====================================================================
+Elegiste dejar la carpeta C:\Users\juan.derosas\zscore-keys en tu máquina.
+Tené presente: si se rompe el disco, se pierde la llave que firma el APK y
+no vas a poder publicar actualizaciones que se instalen sobre la app de tus
+clientes (tendrían que desinstalarla y perderían sus datos). Copiarla a un
+pendrive tarda 2 minutos cuando quieras.
+
+
+=====================================================================
+ QUE PEGARME EN CADA PASO (resumen)
+=====================================================================
+ Paso 1:  la salida completa del script (o solo las últimas 15 líneas si
+          terminó bien).
+ Paso 2:  lo mismo.
+ Paso 3:  lo mismo.
+ Paso 7:  si el email de prueba no llega, el texto rojo del panel.
+ Paso 8:  cómo se ve la pestaña Cobros (puede ser una captura).
+ Si algo falla: la salida completa. Nunca claves ni tokens.
+
+
+=====================================================================
+ SI ALGO SALE MAL (comandos de emergencia, desde tu PowerShell)
+=====================================================================
+Ver si el servicio está andando:
+      ssh root@66.97.38.36 "systemctl is-active zscore-license"
+Ver los últimos mensajes del servicio (no incluyen claves):
+      ssh root@66.97.38.36 "journalctl -u zscore-license -n 50 --no-pager"
+Reiniciarlo:
+      ssh root@66.97.38.36 "systemctl restart zscore-license"
+Olvidé la contraseña del panel (crea una nueva):
+      ssh -t root@66.97.38.36 "cd /var/www/zscore/license-server && DATA_DIR=/var/www/zscore/license-data sudo -E -u www-data node license-admin.cjs panel-clave"
+Devolver la app web anterior (si algo se rompe tras el paso 3):
+      ssh root@66.97.38.36 "cd /var/www/zscore/lite && rm -rf app.rota && mv app app.rota && mv app.anterior app"
+Devolver la página de inicio anterior (tras el paso 10):
+      ssh root@66.97.38.36 "cd /var/www/zscore/lite && cp index.html.anterior index.html"
+
+
+=====================================================================
+ DATOS UTILES
+=====================================================================
+ Panel:            https://lite.zscore.ar/admin   (usuario: admin)
+ Link de compra:   https://lite.zscore.ar/api/license/comprar
+ App web:          https://lite.zscore.ar/app/
+ Servidor:         root@66.97.38.36
+ APK listo:        android\app\build\outputs\apk\release\app-release.apk
+ Guía larga:       server\README.md (sección "Venta online automática")
+ Ayuda dentro del panel: pestaña "Ayuda"
+=====================================================================
