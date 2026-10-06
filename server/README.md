@@ -148,32 +148,63 @@ Los cambios hechos desde el panel quedan en el historial con actor `panel`.
 `bash install-license.sh` (sin argumentos, desde la carpeta con los archivos subidos) actualiza el servicio y agrega
 el bloque de nginx del panel si falta.
 
-## Cobro con Mercado Pago
+## Venta online automática (Mercado Pago + email)
 
-Módulo `license-pay.cjs`. Cada link de pago cobra **un período** (por defecto 30 días); no hay débito automático.
-Desde la ficha de una licencia en el panel: "Cobrar con Mercado Pago" > Generar link de pago > se lo mandás al cliente.
-Cuando paga, Mercado Pago avisa a `https://lite.zscore.ar/api/license/pago` y la licencia se extiende sola
-(una prueba pasa a paga). Seguridad: se valida la firma `x-signature`, se consulta el pago a la API de Mercado Pago,
-se comprueba referencia, moneda y monto contra lo que se generó, y cada pago se aplica una sola vez.
-Reintegros y contracargos se anotan y aparecen en el Resumen para decidir a mano.
+Módulos `license-pay.cjs` (cobro), `license-mail.cjs` (envío por SMTP) y `license-texts.cjs` (textos de los emails).
 
-Para activarlo (una vez):
+**Qué pasa cuando alguien compra**
 
-1. En Mercado Pago Developers: crear una aplicación (Checkout Pro) con la cuenta vendedora. Copiar el **Access Token**.
-2. En esa aplicación > Webhooks: URL `https://lite.zscore.ar/api/license/pago`, evento **Pagos**. Copiar la **clave secreta** que muestra.
-3. En el VPS, crear `/etc/zscore-license.env` (solo root, nunca en el repo) con estas dos líneas y reiniciar el servicio:
+1. El cliente abre `https://lite.zscore.ar/api/license/comprar` (el botón "Comprar" del sitio) y paga en Mercado Pago.
+2. Mercado Pago avisa a `https://lite.zscore.ar/api/license/pago`. El servicio valida la firma, le pregunta el pago a
+   Mercado Pago y comprueba referencia, moneda y monto. Un mismo pago nunca se aplica dos veces.
+3. Se **crea una licencia paga** (nombre y email del pagador, precio, 30 días) y se le manda por email el código, el
+   vencimiento, un link de descarga personal y los pasos. A vos te llega un aviso a "Email para avisos".
+4. En el panel, pestaña **Cobros**, queda registrado: quién pagó, cuánto, qué licencia, hasta cuándo vence y si el email salió.
+5. Unos días antes de vencer (5 por defecto) el cliente recibe un email con un link para renovar; al pagar, la licencia se
+   extiende sola y recibe el recibo. No hay débito automático: cada período es un pago nuevo.
+
+Si el email falla (correo caído) se reintenta solo; si el pagador no dejó email, aparece en "Emails de compra sin enviar"
+del Resumen y se manda a mano desde la ficha ("Enviar instrucciones por email"). Reintegros y contracargos se anotan para
+revisar a mano; no cortan la licencia solos. El precio, los días y el email para avisos se cargan en el panel (Cobros).
+
+### Activarlo, paso a paso
+
+**A. Mercado Pago** (con la cuenta que va a cobrar, con la identidad verificada)
+
+1. Entrá a https://www.mercadopago.com.ar/developers e ingresá con tu cuenta.
+2. "Tus integraciones" > "Crear aplicación". Nombre: Z-Score Lite. Solución de pago: **Checkout Pro**.
+3. En la aplicación, "Credenciales de prueba": copiá el **Access Token** (empieza con `APP_USR-`).
+4. En la aplicación, menú izquierdo "Webhooks" > "Configurar notificaciones": modo **pruebas**, URL
+   `https://lite.zscore.ar/api/license/pago`, evento **Pagos**, guardar. Copiá la **clave secreta** que aparece.
+5. En "Cuentas de prueba" creá un comprador de prueba (y mirá las "Tarjetas de prueba" de Argentina).
+
+**B. Correo** (para mandar los emails). Opción simple con Gmail:
+
+1. Usá una cuenta de Gmail (idealmente una nueva solo para esto, por ejemplo `zscorelicencias@gmail.com`).
+2. Activá la verificación en 2 pasos de esa cuenta y creá una **contraseña de aplicación** (Cuenta de Google > Seguridad >
+   Contraseñas de aplicaciones). Copiá los 16 caracteres.
+3. Si tenés correo con tu dominio (por ejemplo `licencias@zscore.ar`), usá en su lugar los datos SMTP que te da el hosting.
+
+**C. Cargar los datos en el servidor** (una vez; nunca en el repo ni en el chat):
 
 ```bash
 install -m 600 /dev/null /etc/zscore-license.env
-nano /etc/zscore-license.env        # escribir:  MP_ACCESS_TOKEN=APP_USR-...   y en otra línea:  MP_WEBHOOK_SECRET=...
+nano /etc/zscore-license.env     # copiar el contenido de server/zscore-license.env.example y completarlo
 systemctl restart zscore-license
 ```
 
-4. Probar primero con credenciales de **prueba** (usuarios de prueba de Mercado Pago): generar un link, pagarlo con una
-   tarjeta de prueba y ver que la licencia se extiende y aparece "pago" en el historial. Recién después poner las de producción.
+**D. Probar** (todavía con credenciales de **prueba**)
 
-Sin esas dos variables el cobro queda apagado: el panel avisa y se sigue registrando a mano con "Extender".
-El token y la clave secreta no se guardan en la base ni salen por la API.
+1. Panel > Cobros: las dos etiquetas tienen que decir "listo". Cargá el precio y el email para avisos, guardá y tocá
+   "Enviar email de prueba": te tiene que llegar.
+2. Abrí el link de compra en una ventana privada, entrá con el **comprador de prueba** y pagá con una tarjeta de prueba.
+3. En un minuto: aparece el pago en Cobros, se creó la licencia y llegaron los dos emails (cliente y aviso).
+
+**E. Pasar a producción**: en la aplicación de Mercado Pago, "Credenciales de producción" (Access Token) y, en Webhooks, el
+modo **producción** con la misma URL (aparece otra clave secreta). Cambiá los dos valores en `/etc/zscore-license.env` y
+`systemctl restart zscore-license`. Hacé una compra real chica para comprobar.
+
+El token, la clave secreta y la contraseña de correo no se guardan en la base ni salen por la API.
 
 ## Pruebas gratis desde la app
 

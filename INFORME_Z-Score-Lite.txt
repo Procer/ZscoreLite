@@ -132,17 +132,23 @@ Panel de administración (nuevo): https://lite.zscore.ar/admin
   - Respaldo: los mismos comandos de siempre en el servidor (ver
     server/README.md y GUIA_DE_PRUEBAS_Licencias.txt).
 
-Cobro con Mercado Pago (nuevo, apagado hasta cargar credenciales):
-  - Desde la ficha se genera un link de pago por UN período (por ejemplo
-    30 días). El cliente paga y la licencia se extiende sola; si era una
-    prueba, pasa a paga. No hay débito automático: el mes siguiente se
-    genera otro link.
-  - El servidor valida la firma del aviso, consulta el pago a Mercado
-    Pago, comprueba monto y moneda contra lo generado y aplica cada pago
+Venta online automática con Mercado Pago y email (nuevo, apagado hasta
+cargar credenciales de Mercado Pago y de correo):
+  - El cliente entra al link de compra (botón "Comprar" del sitio), paga con
+    Mercado Pago y se CREA SOLA su licencia paga. Le llega por email el
+    código, el vencimiento, un link de descarga personal y los pasos; a vos
+    te llega un aviso de cada venta.
+  - El panel (pestaña Cobros) muestra cada pago: quién, cuánto, qué licencia,
+    hasta cuándo vence y si el email salió. El Resumen muestra lo cobrado en
+    el mes y avisa de los emails sin enviar.
+  - Unos días antes de vencer el cliente recibe un email con un link para
+    renovar; al pagar, la licencia se extiende sola y recibe el recibo.
+  - Seguridad: se valida la firma del aviso, se consulta el pago a Mercado
+    Pago, se comprueba monto y moneda contra lo generado y cada pago se aplica
     una sola vez. Reintegros y contracargos quedan para revisar a mano.
-  - Para activarlo: access token y clave del webhook en
-    /etc/zscore-license.env (ver server/README.md). Probar primero con
-    credenciales de prueba.
+  - Es un pago por período (sin débito automático): cada vencimiento se
+    renueva con un link nuevo, que el aviso por email manda solo.
+  - Para activarlo: ver server/README.md ("Venta online automática").
 
 Descarga protegida del APK:
   - El APK deja de estar en una dirección pública. Se entrega con un link
@@ -156,9 +162,10 @@ Descarga protegida del APK:
 Piezas en el código:
   www/js/license.js (validación en la app), server/license-server.cjs
   (servicio), server/license-panel.cjs + server/panel/ (panel),
-  server/license-pay.cjs (cobro), server/license-ops.cjs (reglas),
+  server/license-pay.cjs (cobro y emails de compra), server/license-mail.cjs
+  (envío de email), server/license-texts.cjs (textos), server/license-ops.cjs (reglas),
   server/license-admin.cjs (comandos), server/license-lib.cjs (base y
-  firma). Pruebas automáticas: npm test (47). Las claves están FUERA del
+  firma). Pruebas automáticas: npm test (75). Las claves están FUERA del
   repo en C:\Users\juan.derosas\zscore-keys\ (hay que respaldarlas).
 
 
@@ -202,15 +209,15 @@ Definido por vos (03/10/2026): cobro por Mercado Pago, precio por
 dispositivo, entrega automática, sin Google Play (APK directo, firmado
 con clave propia). El precio sigue sin definirse; no frena nada.
 
-Hecho (06/10/2026): servicio y panel instalados en el servidor, cobro
-con Mercado Pago y prueba gratis programados y probados, APK 1.5
-compilado y firmado.
+Hecho (06/10/2026): servicio y panel instalados en el servidor, venta online
+con Mercado Pago y emails automáticos y prueba gratis programados y probados,
+APK 1.5 compilado y firmado.
 
 Para terminar, en este orden:
   1. Subir al servidor la última versión del servicio y publicar la web
      (www/) con la prueba gratis y el arreglo de cortesías.
-  2. Cargar las credenciales de Mercado Pago y probar un pago de prueba
-     de punta a punta.
+  2. Cargar las credenciales de Mercado Pago y del correo, y probar un pago
+     de prueba de punta a punta (ver server/README.md).
   3. Publicar el APK 1.5 desde el panel (pestaña App) con sus novedades,
      crear tu licencia de cortesía y reinstalar el APK en tu celular
      (hacer antes la copia de seguridad desde la app).

@@ -192,7 +192,7 @@ function readJson(req) {
 function summary(lic) {
   const state = ops.stateOf(lic);
   return {
-    code: lic.code, type: lic.type, state, customer: lic.customer, contact: lic.contact, note: lic.note,
+    code: lic.code, type: lic.type, state, customer: lic.customer, contact: lic.contact, email: lic.email, note: lic.note,
     price: lic.price, currency: lic.currency, createdAt: lic.createdAt, paidUntil: lic.paidUntil,
     lastSeenAt: lic.lastSeenAt || null, devices: lic.devices.length, maxDevices: lic.maxDevices, tokenExp: lic.tokenExp === undefined ? null : lic.tokenExp,
   };
@@ -348,7 +348,7 @@ async function api(req, res, url, route, ip) {
     const b = await readJson(req);
     const lic = lib.update((db) => ops.crear(db, {
       type: b.type, days: b.days, note: b.note, customer: b.customer, contact: b.contact,
-      price: b.price, currency: b.currency, maxDevices: b.maxDevices,
+      price: b.price, currency: b.currency, maxDevices: b.maxDevices, email: b.email,
     }, ACTOR));
     return json(res, 201, detail(lic));
   }
@@ -368,9 +368,10 @@ async function api(req, res, url, route, ip) {
         case 'resetear': return json(res, 200, mutate(code, (db) => ops.resetear(db, code, ACTOR)));
         case 'dispositivos': return json(res, 200, mutate(code, (db) => ops.dispositivos(db, code, b.maxDevices, ACTOR)));
         case 'editar': return json(res, 200, mutate(code, (db) => ops.editar(db, code, {
-          note: b.note, customer: b.customer, contact: b.contact, price: b.price, currency: b.currency,
+          note: b.note, customer: b.customer, contact: b.contact, email: b.email, price: b.price, currency: b.currency,
         }, ACTOR)));
         case 'pago': return json(res, 200, await pay.createLink(code, b, ACTOR));
+        case 'email': return json(res, 200, { ok: true, ...(await pay.sendInstructions(code, ACTOR)), license: detail(ops.getLicense(lib.readDb(), code)) });
         case 'link': {
           const hours = b.hours != null ? Number(b.hours) : 48;
           const uses = b.uses != null ? Number(b.uses) : 3;
@@ -393,6 +394,18 @@ async function api(req, res, url, route, ip) {
   }
 
   if (route === '/api/admin/pagos' && method === 'GET') return json(res, 200, pay.summary());
+
+  if (route === '/api/admin/config' && method === 'POST') {
+    const b = await readJson(req);
+    pay.saveConfig({ amount: b.amount, currency: b.currency, days: b.days, adminEmail: b.adminEmail, remindDays: b.remindDays });
+    return json(res, 200, pay.summary());
+  }
+
+  if (route === '/api/admin/mail/prueba' && method === 'POST') {
+    const sent = await pay.sendTest();
+    console.log(`panel: email de prueba a ${sent.to}`);
+    return json(res, 200, { ok: true, to: sent.to });
+  }
 
   if (route === '/api/admin/apk' && method === 'GET') return json(res, 200, apkInfo());
   if (route === '/api/admin/apk' && method === 'PUT') {

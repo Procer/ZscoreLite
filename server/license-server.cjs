@@ -229,6 +229,10 @@ async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const route = url.pathname.replace(/\/+$/, '');
 
+  // Compra online: lleva al checkout de Mercado Pago, y la página a la que vuelve el cliente
+  if (route === '/api/license/comprar') return pay.handleSale(req, res, clientIp(req));
+  if (route === '/api/license/gracias') return pay.handleThanks(req, res, url);
+
   // Aviso de pago de Mercado Pago (tiene su propia validación de firma)
   if (route === '/api/license/pago') {
     const ip = clientIp(req);
@@ -269,4 +273,7 @@ http.createServer({ requestTimeout: 15 * 60000 }, (req, res) => { // el panel re
     console.error('error:', e);
     if (!res.headersSent) send(res, 500, { error: 'error interno' });
   });
-}).listen(PORT, HOST, () => console.log(`zscore-license escuchando en http://${HOST}:${PORT}`));
+}).listen(PORT, HOST, () => {
+  console.log(`zscore-license escuchando en http://${HOST}:${PORT}`);
+  pay.startJobs(); // reintentos de emails y avisos de vencimiento
+});

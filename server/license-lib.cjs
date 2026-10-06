@@ -35,6 +35,7 @@ const MAX_EVENTS = 200; // por licencia; los más viejos se descartan
 function normalize(db) {
   db.version = SCHEMA_VERSION;
   db.links = db.links || {};
+  db.config = db.config || {}; // ajustes de la venta online: { sale: {amount, currency, days}, adminEmail }
   db.payLinks = db.payLinks || {}; // links de pago generados: ref -> { code, days, amount, currency, at }
   db.payments = db.payments || {}; // pagos de Mercado Pago ya aplicados (por id de pago)
   db.trials = db.trials || {}; // pruebas por autoservicio: huella del dispositivo -> { at, code }
@@ -43,6 +44,7 @@ function normalize(db) {
     if (!Array.isArray(lic.devices)) lic.devices = [];
     if (!Array.isArray(lic.events)) lic.events = [];
     if (lic.customer == null) lic.customer = '';
+    if (lic.email == null) lic.email = '';
     if (lic.contact == null) lic.contact = '';
     if (lic.price === undefined) lic.price = null;
     if (!lic.currency) lic.currency = 'ARS';

@@ -5,6 +5,8 @@
 const DAY = 86400000;
 const WARN_DAYS = 7;
 const TRIAL_WARN_DAYS = 3;
+const MAIL_STATUS = { enviado: 'Enviado', pendiente: 'Pendiente', error: 'Falló (se reintenta)', sin_email: 'Sin email', sin_smtp: 'Correo sin configurar' };
+const PAY_ROW_STATUS = { approved: 'Aprobado', monto_incorrecto: 'Revisar: monto', refunded: 'Reintegrado', charged_back: 'Contracargo', cancelled: 'Cancelado' };
 const PAY_STATUS = { monto_incorrecto: 'monto distinto al del link', refunded: 'reintegrado', charged_back: 'contracargo', cancelled: 'cancelado' };
 const NEVER_ACTIVATED_DAYS = 2;
 
@@ -152,7 +154,7 @@ function upsert(lic) {
 
 // ---------- Estructura general ----------
 
-const TABS = [['resumen', 'Resumen'], ['licencias', 'Licencias'], ['apk', 'App (APK)'], ['ayuda', 'Ayuda']];
+const TABS = [['resumen', 'Resumen'], ['licencias', 'Licencias'], ['cobros', 'Cobros'], ['apk', 'App (APK)'], ['ayuda', 'Ayuda']];
 
 function showApp() {
   const tabs = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([id, label]) => h('button', {
@@ -169,7 +171,7 @@ function showApp() {
       class: 'btn small', text: 'Salir',
       onclick: async () => { try { await api('POST', '/logout', {}); } catch (e) { /* igual se sale */ } state.csrf = null; showLogin(); },
     })));
-  const view = { resumen: viewSummary, licencias: viewLicenses, apk: viewApk, ayuda: viewHelp }[state.tab]();
+  const view = { resumen: viewSummary, licencias: viewLicenses, cobros: viewPayments, apk: viewApk, ayuda: viewHelp }[state.tab]();
   app.replaceChildren(top, h('main', { class: 'wrap' }, view));
 }
 
@@ -229,6 +231,9 @@ function viewSummary() {
     h('div', { class: 'stack' },
       state.pagos.review.length ? group('Pagos de Mercado Pago para revisar', state.pagos.review.map((p) => ({ code: p.code, customer: (state.licenses.find((l) => l.code === p.code) || {}).customer, note: '', status: p.status })),
         (l) => PAY_STATUS[l.status] || l.status) : null,
+      state.pagos.rows.some((r) => r.status === 'approved' && ['error', 'sin_email', 'sin_smtp'].includes(r.mail))
+        ? group('Emails de compra sin enviar', state.pagos.rows.filter((r) => r.status === 'approved' && ['error', 'sin_email', 'sin_smtp'].includes(r.mail))
+          .map((r) => ({ code: r.code, customer: r.customer || r.email, note: '', status: r.mail })), (l) => MAIL_STATUS[l.status] || l.status) : null,
       group('Por vencer', by((l) => classify(l).expiring).sort((a, b) => a.paidUntil - b.paidUntil), left),
       group('Pagas vencidas: cobrar o dar de baja', by((l) => classify(l).unpaid).sort((a, b) => b.paidUntil - a.paidUntil), (l) => `venció ${fmtDate(l.paidUntil)}`),
       group('Pruebas por terminar o terminadas: convertir', by((l) => classify(l).trialEnding || classify(l).trialExpired).sort((a, b) => a.paidUntil - b.paidUntil),
@@ -317,7 +322,8 @@ function openCreate() {
     type: h('select', {}, [['paga', 'Paga (30 días)'], ['prueba', 'Prueba (14 días)'], ['cortesia', 'Cortesía (no vence)']].map(([v, t]) => h('option', { value: v, text: t }))),
     days: h('input', { type: 'number', min: '1', step: '1', placeholder: 'por defecto del tipo' }),
     customer: h('input', { maxlength: '120', placeholder: 'Club o persona' }),
-    contact: h('input', { maxlength: '120', placeholder: 'Teléfono o mail' }),
+    contact: h('input', { maxlength: '120', placeholder: 'Teléfono u otro dato' }),
+    email: h('input', { type: 'email', maxlength: '120', placeholder: 'Para mandarle el código y los avisos' }),
     price: h('input', { type: 'number', min: '0', step: 'any' }),
     currency: h('input', { maxlength: '3', value: 'ARS' }),
     maxDevices: h('input', { type: 'number', min: '1', step: '1', value: '1' }),
@@ -352,6 +358,7 @@ function openCreate() {
   h('div', { class: 'row' }, field('Tipo', f.type), field('Días', f.days)),
   h('p', { class: 'hint', text: 'Días vacío usa el valor del tipo (paga 30, prueba 14). La cortesía no vence. Cliente, contacto, precio y nota son solo para vos.' }),
   h('div', { class: 'row' }, field('Cliente', f.customer), field('Contacto', f.contact)),
+  field('Email del cliente', f.email),
   h('div', { class: 'row' }, field('Precio', f.price), field('Moneda', f.currency), field('Dispositivos', f.maxDevices)),
   field('Nota', f.note), out, submit));
 }
@@ -360,7 +367,10 @@ function openCreate() {
 
 async function openDetail(code) {
   let lic;
-  try { lic = await api('GET', `/licenses/${encodeURIComponent(code)}`); } catch (e) {
+  try {
+    lic = await api('GET', `/licenses/${encodeURIComponent(code)}`);
+    state.pagos = await api('GET', '/pagos');
+  } catch (e) {
     if (!(e instanceof ApiError && e.code === 'sesion')) toast(e.message, true);
     return;
   }
@@ -395,7 +405,7 @@ function detailContent(lic, paint, dlg) {
     : fmtDate(lic.tokenExp);
 
   const info = h('dl', { class: 'kv' },
-    kv('Cliente', lic.customer || '—'), kv('Contacto', lic.contact || '—'),
+    kv('Cliente', lic.customer || '—'), kv('Contacto', lic.contact || '—'), kv('Email', lic.email || '—'),
     kv('Precio', money(lic.price, lic.currency)), kv('Nota', lic.note || '—'),
     kv('Creada', fmtDate(lic.createdAt)),
     kv('Vence', lic.paidUntil == null ? 'Sin vencimiento' : `${fmtDate(lic.paidUntil)}${daysLeft(lic) != null ? ` (${daysLeft(lic) >= 0 ? `faltan ${daysLeft(lic)}` : `hace ${-daysLeft(lic)}`} días)` : ''}`),
@@ -449,6 +459,21 @@ function detailContent(lic, paint, dlg) {
           }), 'primary')), payOut)
       : h('p', { class: 'hint', text: 'Todavía no está activado en el servidor (faltan las credenciales de Mercado Pago). Mientras tanto registrá los pagos a mano con "Extender". Mirá la Ayuda.' }));
 
+  // Enviar los datos por email
+  const enviar = !lic.email || lic.state === 'revocada' ? null : h('div', { class: 'action' }, h('h3', { text: 'Enviar al cliente por email' }),
+    h('p', { class: 'hint', text: `Le manda a ${lic.email} el código, el vencimiento, un link de descarga personal y los pasos para activarla.` }),
+    h('div', { class: 'row' }, small('Enviar instrucciones por email', (ev) => run(ev.currentTarget, async () => {
+      const r = await api('POST', `/licenses/${encodeURIComponent(lic.code)}/email`, {});
+      paint(r.license);
+      toast(`Email enviado a ${r.to}`);
+    }), 'primary')));
+
+  const misPagos = state.pagos.rows.filter((r) => r.code === lic.code);
+  const pagos = !misPagos.length ? null : h('div', { class: 'action' }, h('h3', { text: 'Pagos de esta licencia' }),
+    h('div', { class: 'timeline' }, misPagos.map((r) => h('div', {},
+      h('span', { class: 'muted', text: fmtDateTime(r.at) }), h('strong', { text: money(r.amount, r.currency) }),
+      h('span', { class: 'muted', text: `${r.days} d` }), h('span', { text: `${PAY_ROW_STATUS[r.status] || r.status} · email: ${MAIL_STATUS[r.mail] || '—'}` })))));
+
   // Link
   const hours = num({ value: '48', max: '720', 'aria-label': 'Horas de vigencia' });
   const uses = num({ value: '3', max: '20', 'aria-label': 'Descargas' });
@@ -467,15 +492,17 @@ function detailContent(lic, paint, dlg) {
   // Editar
   const e = {
     customer: h('input', { value: lic.customer, maxlength: '120' }), contact: h('input', { value: lic.contact, maxlength: '120' }),
+    email: h('input', { type: 'email', value: lic.email || '', maxlength: '120' }),
     price: h('input', { type: 'number', min: '0', step: 'any', value: lic.price == null ? '' : String(lic.price) }),
     currency: h('input', { value: lic.currency, maxlength: '3' }), note: h('input', { value: lic.note, maxlength: '300' }),
   };
   const editar = h('div', { class: 'action' }, h('h3', { text: 'Datos del cliente' }),
     h('div', { class: 'row' }, field('Cliente', e.customer), field('Contacto', e.contact)),
+    field('Email del cliente', e.email),
     h('div', { class: 'row' }, field('Precio', e.price), field('Moneda', e.currency)),
     field('Nota', e.note),
     h('div', { class: 'row' }, small('Guardar datos', (ev) => act(ev.currentTarget, 'POST', '/editar', {
-      customer: e.customer.value, contact: e.contact.value, note: e.note.value, currency: e.currency.value, price: e.price.value === '' ? '' : Number(e.price.value),
+      customer: e.customer.value, contact: e.contact.value, email: e.email.value, note: e.note.value, currency: e.currency.value, price: e.price.value === '' ? '' : Number(e.price.value),
     }, 'Datos guardados'), 'primary')));
 
   const devices = h('div', { class: 'action' }, h('h3', { text: 'Dispositivos activados' }),
@@ -492,7 +519,7 @@ function detailContent(lic, paint, dlg) {
       h('span', { class: `badge ${lic.type}`, text: TYPE_NAME[lic.type] }), h('span', { class: `badge ${lic.state}`, text: STATE_NAME[lic.state] }),
       small('Copiar código', () => copy(lic.code, 'Código copiado')), h('span', { class: 'spacer' }),
       small('Cerrar', () => dlg.close())),
-    info, h('div', { class: 'actions' }, cobro, extender, convertir, estado, link, editar, devices, history),
+    info, h('div', { class: 'actions' }, cobro, pagos, enviar, extender, convertir, estado, link, editar, devices, history),
   ];
 }
 
@@ -551,6 +578,78 @@ function viewApk() {
     h('section', { class: 'card stack' }, h('h3', { text: 'Publicar una versión nueva' }), form));
 }
 
+// ---------- Cobros ----------
+
+function viewPayments() {
+  const pg = state.pagos;
+  const sale = pg.config.sale;
+  const amount = h('input', { type: 'number', min: '0', step: 'any', value: sale ? String(sale.amount) : '', placeholder: 'ej. 15000' });
+  const currency = h('input', { maxlength: '3', value: sale ? sale.currency : 'ARS' });
+  const dayz = h('input', { type: 'number', min: '1', max: '366', step: '1', value: sale ? String(sale.days) : '30' });
+  const adminEmail = h('input', { type: 'email', maxlength: '120', value: pg.config.adminEmail || '', placeholder: 'tu@email.com' });
+  const remind = h('input', { type: 'number', min: '0', max: '30', step: '1', value: String(pg.config.remindDays) });
+  const chip = (ok, label) => h('span', { class: `badge ${ok ? 'activa' : 'vencida'}`, text: `${label}: ${ok ? 'listo' : 'falta configurar'}` });
+
+  const save = h('button', { class: 'btn primary', type: 'submit', text: 'Guardar' });
+  const form = h('form', {
+    class: 'stack',
+    onsubmit: (ev) => {
+      ev.preventDefault();
+      run(save, async () => {
+        state.pagos = await api('POST', '/config', {
+          amount: amount.value === '' ? '' : Number(amount.value), currency: currency.value, days: Number(dayz.value),
+          adminEmail: adminEmail.value, remindDays: Number(remind.value),
+        });
+        toast('Guardado');
+        showApp();
+      });
+    },
+  },
+  h('div', { class: 'row' }, field('Precio de la licencia', amount), field('Moneda', currency), field('Días que dura', dayz)),
+  h('p', { class: 'hint', text: 'Si dejás el precio vacío y guardás, se apaga la venta online. Podés cambiar el precio cuando quieras: vale para las compras nuevas.' }),
+  h('div', { class: 'row' }, field('Email para avisos de venta (te llega uno por cada pago)', adminEmail), field('Avisar de vencimientos (días antes, 0 = no)', remind)),
+  save);
+
+  const saleLink = sale && pg.configured
+    ? h('div', { class: 'stack' },
+      h('div', { class: 'linkbox' }, h('input', { readonly: true, value: pg.saleUrl, 'aria-label': 'Link de compra' }), h('button', { class: 'btn small', type: 'button', text: 'Copiar', onclick: () => copy(pg.saleUrl, 'Link de compra copiado') })),
+      h('p', { class: 'hint', text: 'Ponelo en el botón "Comprar" de tu sitio o mandalo por WhatsApp. Quien lo abre va al pago de Mercado Pago.' }))
+    : h('p', { class: 'hint', text: !pg.configured ? 'Falta cargar las credenciales de Mercado Pago en el servidor (ver Ayuda y server/README.md).' : 'Cargá el precio y guardá para activar el link de compra.' });
+
+  const testMail = h('button', { class: 'btn small', type: 'button', text: 'Enviar email de prueba', onclick: (ev) => run(ev.currentTarget, async () => {
+    const r = await api('POST', '/mail/prueba', {});
+    toast(`Email de prueba enviado a ${r.to}`);
+  }) });
+
+  const total = pg.month.length ? pg.month.map((m) => `${money(m.total, m.currency)} (${m.count} pago${m.count === 1 ? '' : 's'})`).join(' + ') : 'todavía nada';
+  const table = pg.rows.length
+    ? h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, ['Fecha', 'Cliente', 'Código', 'Tipo', 'Monto', 'Días', 'Vence', 'Estado', 'Email'].map((t) => h('th', { scope: 'col', text: t })))),
+      h('tbody', {}, pg.rows.map((r) => h('tr', { tabindex: '0', onclick: () => { if (r.code) openDetail(r.code); }, onkeydown: (ev) => { if (ev.key === 'Enter' && r.code) openDetail(r.code); } },
+        h('td', { text: fmtDateTime(r.at) }),
+        h('td', { class: 'clip', text: r.customer || r.email || '—' }),
+        h('td', {}, h('span', { class: 'mono', text: r.code || '—' })),
+        h('td', { text: r.kind === 'new' ? 'Compra' : 'Renovación' }),
+        h('td', { text: money(r.amount, r.currency) }),
+        h('td', { text: r.days ? String(r.days) : '—' }),
+        h('td', { text: r.paidUntil == null ? '—' : fmtDate(r.paidUntil) }),
+        h('td', {}, h('span', { class: `badge ${r.status === 'approved' ? 'activa' : 'vencida'}`, text: PAY_ROW_STATUS[r.status] || r.status })),
+        h('td', { title: r.mailError || r.mailTo || '', text: MAIL_STATUS[r.mail] || (r.status === 'approved' ? '—' : '') }))))))
+    : h('p', { class: 'empty', text: 'Todavía no hay pagos.' });
+
+  return h('div', { class: 'stack' },
+    h('div', { class: 'section-head' }, h('h2', { text: 'Cobros' })),
+    h('section', { class: 'card stack' },
+      h('h3', { text: 'Venta online' }),
+      h('p', { class: 'hint', text: 'Cuando alguien paga, se crea sola su licencia y le llega por email el código, el link de descarga y los pasos. A vos te llega un aviso.' }),
+      h('div', { class: 'row' }, chip(pg.configured, 'Mercado Pago'), chip(pg.mailConfigured, 'Envío de emails'), testMail),
+      form, saleLink),
+    h('section', { class: 'card stack' },
+      h('h3', { text: 'Pagos recibidos' }),
+      h('p', { text: `Cobrado este mes: ${total}` }),
+      table));
+}
+
 // ---------- Ayuda ----------
 
 function helpSection(title, open, ...content) {
@@ -571,6 +670,7 @@ function viewHelp() {
         'En la ficha de esa licencia, "Link de descarga del APK" > Generar link > Copiar. Mandale también el link: vale unas horas y unas pocas descargas.',
         'El cliente instala la app, escribe el código una sola vez y queda atado a su celular. En la ficha vas a ver "Dispositivos 1 de 1" y la última conexión.',
         'Cuando pague de nuevo, entrá a su ficha y usá "Registrar pago / extender".'),
+      p('Si el cliente compra online, los pasos 1 a 4 pasan solos (ver "Venta online automática").'),
       p('Importante: hoy la app todavía NO le exige licencia a nadie (esa llave se prende en una etapa posterior, después de probar todo). Mientras tanto el código se puede cargar, pero la app no bloquea.')),
 
     helpSection('Tipos de licencia', false,
@@ -586,9 +686,18 @@ function viewHelp() {
         '"Sin activar todavía": creaste el código hace más de 2 días y el cliente no lo usó. Recordáselo.',
         '"Pagas activas": suma del precio cargado en las licencias pagas al día (solo informativo; no es plata cobrada).')),
 
-    helpSection('Cobrar con Mercado Pago', false,
+    helpSection('Venta online automática (el cliente paga y recibe todo por email)', false,
+      li('Pestaña Cobros: cargá el precio, la moneda y los días (por ejemplo 15000 ARS, 30 días) y tocá Guardar. Eso activa el link de compra.',
+        'Copiá el "Link de compra" y ponelo en el botón Comprar de tu sitio o mandalo por WhatsApp. Quien lo abre va al pago de Mercado Pago.',
+        'Cuando paga: se crea sola una licencia paga (con el nombre y el email que dejó en Mercado Pago), le llega un email con el código, el vencimiento, el link de descarga y los pasos, y a vos te llega un aviso al "Email para avisos".',
+        'Todo queda en Cobros: quién pagó, cuánto, qué licencia, hasta cuándo vence y si el email salió.',
+        'Unos días antes de vencer (por defecto 5) el cliente recibe un email con un link para renovar. Se apaga poniendo 0.'),
+      p('Si un email no sale (falló el correo o el pagador no dejó email) aparece en "Emails de compra sin enviar" del Resumen. Si falló el correo se reintenta solo; si falta el email, cargalo en la ficha y tocá "Enviar instrucciones por email".'),
+      p('Para que funcione, el servidor necesita las credenciales de Mercado Pago y del correo (ver server/README.md). La pestaña Cobros te dice qué falta y tiene un botón para mandarte un email de prueba.')),
+
+    helpSection('Cobrar la renovación de una licencia que ya existe', false,
       li('En la ficha, "Cobrar con Mercado Pago": confirmá el monto y los días y tocá "Generar link de pago". Copialo y mandáselo al cliente.',
-        'Cuando el cliente paga, Mercado Pago avisa al servidor y la licencia se extiende sola en unos segundos (si era una prueba, pasa a paga). Queda en el historial como "pago" con actor mp.',
+        'Cuando el cliente paga, Mercado Pago avisa al servidor y la licencia se extiende sola en unos segundos (si era una prueba, pasa a paga). Queda en el historial como "pago" con actor mp y, si la licencia tiene email, el cliente recibe el recibo.',
         'Cada link cobra UN período (por ejemplo 30 días). Para el mes siguiente se genera otro link: todavía no hay débito automático.',
         'El link vence a los 7 días. Un mismo pago nunca suma dos veces.'),
       p('Seguridad: el servidor verifica la firma del aviso, le pregunta a Mercado Pago por el pago y comprueba que el monto y la moneda sean los del link. Si no coinciden, no suma días y lo deja en "Pagos de Mercado Pago para revisar" (Resumen).'),
@@ -640,8 +749,8 @@ function viewHelp() {
         'Salí siempre con el botón "Salir" si usás una computadora que no es tuya.')),
 
     helpSection('Qué NO hace todavía', false,
-      li('No hace débito automático ni suscripción: cada período se cobra con un link nuevo.',
-        'No manda mails ni WhatsApp: el código y los links los copiás y los mandás vos.',
+      li('No hace débito automático ni suscripción: cada período se cobra con un link nuevo (el aviso por email antes de vencer sale solo).',
+        'No manda WhatsApp: solo emails.',
         'No tiene gráficos de ingresos ni estadísticas de uso (solo el total cobrado del mes).',
         'Las pruebas gratis se piden solas desde la app (14 días, una por celular); aparecen acá como "Prueba autoservicio" y sin datos de contacto.')));
 }

@@ -19,7 +19,7 @@ function Paso($texto) { Write-Host "`n== $texto" -ForegroundColor Cyan }
 function Verificar($texto) { if ($LASTEXITCODE -ne 0) { throw "Fallo: $texto (codigo $LASTEXITCODE). No se siguio." } }
 
 if (-not $SinTests) {
-  Paso 'Tests (47 esperados)'
+  Paso 'Tests'
   npm test
   Verificar 'los tests'
 }
@@ -27,7 +27,7 @@ if (-not $SinTests) {
 Paso 'Subiendo archivos'
 ssh $Vps 'mkdir -p /root/lic-install'
 Verificar 'crear la carpeta en el servidor'
-scp -r server/license-server.cjs server/license-lib.cjs server/license-ops.cjs server/license-panel.cjs server/license-pay.cjs server/license-admin.cjs server/panel server/zscore-license.service server/nginx-license.conf server/nginx-admin.conf server/install-license.sh "${Vps}:/root/lic-install/"
+scp -r server/license-*.cjs server/panel server/zscore-license.service server/nginx-license.conf server/nginx-admin.conf server/install-license.sh "${Vps}:/root/lic-install/"
 Verificar 'subir los archivos'
 
 Paso 'Instalando (reusa la clave ya instalada)'

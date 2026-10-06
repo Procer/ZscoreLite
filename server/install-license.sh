@@ -38,7 +38,7 @@ command -v node >/dev/null || die "no hay node en el servidor"
 [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 18 ] || die "hace falta Node 18 o más (hay $(node -v))"
 id www-data >/dev/null 2>&1 || die "no existe el usuario www-data"
 [ -f "$VHOST" ] || die "no encuentro $VHOST (si se llama distinto: VHOST=/ruta bash install-license.sh ...)"
-for f in license-server.cjs license-lib.cjs license-ops.cjs license-panel.cjs license-pay.cjs license-admin.cjs zscore-license.service nginx-license.conf nginx-admin.conf; do [ -f "$SRC/$f" ] || die "falta $SRC/$f"; done
+for f in license-server.cjs license-lib.cjs license-ops.cjs license-panel.cjs license-pay.cjs license-mail.cjs license-texts.cjs license-admin.cjs zscore-license.service nginx-license.conf nginx-admin.conf; do [ -f "$SRC/$f" ] || die "falta $SRC/$f"; done
 for f in "${PANEL_FILES[@]}"; do [ -f "$SRC/panel/$f" ] || die "falta $SRC/panel/$f"; done
 openssl pkey -in "$KEY_SRC" -noout 2>/dev/null || die "la clave no se puede leer como PEM"
 echo "node $(node -v), clave legible"

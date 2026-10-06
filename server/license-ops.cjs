@@ -10,7 +10,7 @@ const lib = require('./license-lib.cjs');
 const { OpError } = lib;
 
 const DEFAULT_DAYS = { paga: 30, prueba: 14 };
-const LIMITS = { note: 300, customer: 120, contact: 120 };
+const LIMITS = { note: 300, customer: 120, contact: 120, email: 120 };
 
 function stateOf(lic, now = Date.now()) {
   if (lic.revoked) return 'revocada';
@@ -33,6 +33,16 @@ function parsePositive(value, what) {
   const n = Number(value);
   if (!(n > 0)) throw new OpError(`${what} tiene que ser un número mayor a 0`);
   return n;
+}
+
+/** Un email razonable (o vacío). Sin espacios, comas ni saltos de línea: va a parar a un encabezado de correo. */
+function parseEmail(value) {
+  const e = String(value == null ? '' : value).trim();
+  if (e === '') return '';
+  if (e.length > LIMITS.email || !/^[^\s@<>,;"'()]+@[^\s@<>,;"'()]+\.[^\s@<>,;"'()]+$/.test(e)) {
+    throw new OpError('el email no es válido');
+  }
+  return e;
 }
 
 function parsePrice(value) {
@@ -64,6 +74,7 @@ function crear(db, opts, actor) {
   const code = lib.newCode(db);
   const lic = {
     code, type, note: text(opts.note, 'note'), customer: text(opts.customer, 'customer'), contact: text(opts.contact, 'contact'),
+    email: parseEmail(opts.email),
     price: opts.price != null ? parsePrice(opts.price) : null,
     currency: opts.currency != null ? parseCurrency(opts.currency) : 'ARS',
     createdAt: Date.now(),
@@ -125,6 +136,7 @@ function editar(db, rawCode, fields, actor) {
   for (const f of ['note', 'customer', 'contact']) {
     if (fields[f] !== undefined) { lic[f] = text(fields[f], f); changed.push(f); }
   }
+  if (fields.email !== undefined) { lic.email = parseEmail(fields.email); changed.push('email'); }
   if (fields.price !== undefined) { lic.price = parsePrice(fields.price); changed.push('price'); }
   if (fields.currency !== undefined) { lic.currency = parseCurrency(fields.currency); changed.push('currency'); }
   if (!changed.length) throw new OpError('no hay nada para cambiar');
@@ -142,6 +154,6 @@ function dispositivos(db, rawCode, rawN, actor) {
 }
 
 module.exports = {
-  OpError, DEFAULT_DAYS, stateOf, getLicense,
+  OpError, DEFAULT_DAYS, stateOf, getLicense, parseEmail,
   crear, extender, convertir, revocar, reactivar, resetear, editar, dispositivos,
 };
