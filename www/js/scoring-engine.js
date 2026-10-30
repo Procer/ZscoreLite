@@ -288,6 +288,10 @@ export function replayMatch(config, events) {
 
 function evaluateSet(gamesA, gamesB, cfg) {
   const N = cfg.gamesPerSet;
+  // Formato social: gana el primero en llegar a N games, sin diferencia de 2 ni tie-break.
+  if (cfg.mode === 'games' && cfg.firstTo && (gamesA >= N || gamesB >= N)) {
+    return { over: true, winner: gamesA > gamesB ? 'A' : 'B' };
+  }
   if (gamesA === N && gamesB === N) return { triggerTiebreak: true };
   if ((gamesA >= N || gamesB >= N) && Math.abs(gamesA - gamesB) >= 2) {
     return { over: true, winner: gamesA > gamesB ? 'A' : 'B' };
@@ -298,7 +302,7 @@ function evaluateSet(gamesA, gamesB, cfg) {
 export function describeConfig(cfg) {
   const c = defaultConfig(cfg);
   if (c.mode === 'games') {
-    return `A ${c.gamesPerSet} games${c.noAd ? ', punto de oro' : ''}`;
+    return `${c.firstTo ? 'Primero a' : 'A'} ${c.gamesPerSet} games${c.noAd ? ', punto de oro' : ''}`;
   }
   const bestOf = c.setsToWin === 1 ? '1 set' : c.setsToWin === 2 ? 'mejor de 3 sets' : 'mejor de 5 sets';
   const parts = [bestOf, `games a ${c.gamesPerSet}`];

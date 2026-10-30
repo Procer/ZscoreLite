@@ -8,7 +8,10 @@
 
 // Interruptor: con false la app funciona como siempre, sin pedir licencia.
 // Pasarlo a true recién cuando el servicio de licencias esté instalado y probado.
-export const LICENSE_REQUIRED = false;
+export const LICENSE_REQUIRED = true;
+
+// Botón "Probar gratis" en la pantalla de licencia. Apagado: las pruebas se dan a mano, con licencias de prueba o cortesía desde el panel.
+export const TRIAL_ENABLED = false;
 
 export const GRACE_DAYS = 3;
 export const WARN_DAYS = 5; // desde cuántos días antes de vencer se avisa
@@ -149,7 +152,22 @@ async function post(path, body) {
   let data = {};
   try { data = await res.json(); } catch (e) { /* respuesta sin cuerpo */ }
   if (res.ok) return { ok: true, ...data };
-  return { ok: false, error: data.error || (res.status >= 500 ? 'red' : 'codigo') };
+  // explicit: el servidor contestó con un error propio (no un 404 de otra cosa, como un proxy caído).
+  return { ok: false, error: data.error || (res.status >= 500 ? 'red' : 'codigo'), explicit: Boolean(data.error) };
+}
+
+/**
+ * Si el servidor dice que no conoce este celular (la licencia se borró o se liberó este dispositivo desde el panel),
+ * se descarta lo guardado para que la app pida activar un código de nuevo. Sin internet o ante cualquier otro error
+ * no se toca nada: la app sigue funcionando offline como siempre.
+ */
+async function dropIfUnknown(r) {
+  if (r.ok || !r.explicit || r.error !== 'codigo') return false;
+  write(null);
+  await evaluate();
+  current = { ...current, reason: 'liberada' };
+  for (const cb of listeners) cb(current);
+  return true;
 }
 
 /** Activa este dispositivo con un código ZSL-XXXX-XXXX. */
@@ -192,6 +210,7 @@ export async function renew({ force = false } = {}) {
   if (payload.exp == null && !legacyNoExpiry) return false;
   if (!force && !legacyNoExpiry && payload.exp - now() > RENEW_DAYS * DAY) return false;
   const r = await post('renovar', { token: saved.token, device: saved.device });
+  if (await dropIfUnknown(r)) return false;
   if (!r.ok) return false;
   const fresh = await verifyToken(r.token);
   if (!fresh || fresh.dev !== saved.device) return false;
@@ -224,6 +243,7 @@ export async function checkUpdate() {
   const installed = native.appVersionCode();
   if (!(installed > 0)) return null;
   const r = await post('version', { token: saved.token, device: saved.device });
+  if (await dropIfUnknown(r)) return null;
   if (!r.ok) return null;
   if (!(r.versionCode > installed)) return null;
   return { versionName: r.versionName, notes: Array.isArray(r.notes) ? r.notes : [], url: r.url };

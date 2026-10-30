@@ -321,7 +321,9 @@ export function initScoreboard({ onMatchFinished, onPause, onOpenLive }) {
     const action = el.dataset.action;
 
     if (action === 'point' && controller) {
-      controller.addPoint(el.dataset.team);
+      // Antes del primer tanto, tocar un lado solo elige quién saca.
+      if (!controller.getState().state.display.server) controller.setFirstServer(el.dataset.team);
+      else controller.addPoint(el.dataset.team);
       return;
     }
     if (action === 'open-menu') {
@@ -340,6 +342,9 @@ export function initScoreboard({ onMatchFinished, onPause, onOpenLive }) {
     if (action === 'close-menu') overlayMenu.classList.remove('is-active');
     if (action === 'undo-point') { controller?.undo(); }
     if (action === 'end-match') {
+      // En una jornada social, cortar el partido a mitad cierra toda la jornada.
+      if (controller?.sessionId && !controller.getState().state.matchOver
+        && !confirm('Finalizar ahora también termina la jornada. ¿Seguir?')) return;
       overlayMenu.classList.remove('is-active');
       finishMatch();
     }

@@ -210,6 +210,30 @@ test('pago aprobado de una compra: crea la licencia paga y manda los emails', as
   const link = /(https:\/\/lite\.test\/api\/license\/descargar\?t=[\w-]+)/.exec(welcome.text);
   assert.ok(link, 'lleva el link personal de descarga');
 
+  // El email también va en HTML, con el botón a la página de descarga y el código
+  const pageLink = /(https:\/\/lite\.test\/api\/license\/app\?t=[\w-]+)/.exec(welcome.text);
+  assert.ok(pageLink, 'el texto lleva la página de descarga');
+  assert.ok(welcome.html.includes('Descargar la app') && welcome.html.includes(pageLink[1]), 'el HTML tiene el botón a la página de descarga');
+  assert.ok(welcome.html.includes(lic.code) && welcome.html.includes('Ana Pérez'), 'el HTML lleva el código y el nombre');
+  assert.ok(welcome.html.includes(link[1]), 'el HTML también lleva el link directo como plan B');
+
+  // La página de descarga muestra el código y mirarla (varias veces) no gasta usos del link
+  const usesBefore = Object.values(lib.readDb().links).find((l) => l.code === lic.code).uses;
+  for (let i = 0; i < 3; i++) {
+    const pg = await api('GET', pageLink[1].replace(PUBLIC, ''));
+    assert.equal(pg.status, 200);
+    assert.match(pg.headers.get('content-type'), /text\/html/);
+    assert.ok(pg.data.includes(lic.code) && pg.data.includes('/api/license/descargar?t='), 'muestra el código y el botón de descarga');
+    assert.ok(pg.data.includes('intent://') && pg.data.includes('com.android.chrome'), 'tiene el botón para abrir en Chrome');
+  }
+  assert.equal(Object.values(lib.readDb().links).find((l) => l.code === lic.code).uses, usesBefore, 'mirar la página no gasta usos');
+  assert.equal((await api('GET', '/api/license/app?t=inventado')).status, 403, 'un link inventado no muestra nada');
+  assert.equal((await api('GET', '/api/license/app')).status, 403);
+  const logo = await api('GET', '/api/license/logo.png');
+  assert.equal(logo.status, 200);
+  assert.equal(logo.headers.get('content-type'), 'image/png');
+  assert.ok(welcome.html.includes('/api/license/logo.png'), 'el email lleva el logo');
+
   // El link funciona y baja el APK
   const dl = await api('GET', link[1].replace(PUBLIC, ''));
   assert.equal(dl.status, 200);

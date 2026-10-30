@@ -154,6 +154,7 @@ const STATIC = {
   '/admin': ['admin.html', 'text/html; charset=utf-8'],
   '/admin/admin.css': ['admin.css', 'text/css; charset=utf-8'],
   '/admin/admin.js': ['admin.js', 'text/javascript; charset=utf-8'],
+  '/admin/logo.png': ['logo.png', 'image/png'],
 };
 
 function serveStatic(res, route) {

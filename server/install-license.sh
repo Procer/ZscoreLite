@@ -23,7 +23,7 @@ SERVICE=/etc/systemd/system/zscore-license.service
 # Todos los license-*.cjs de la carpeta: así un módulo nuevo no puede quedar sin copiar (pasó con license-pay.cjs).
 FILES=()
 for f in "$SRC"/license-*.cjs; do FILES+=("$(basename "$f")"); done
-PANEL_FILES=(admin.html admin.css admin.js)
+PANEL_FILES=(admin.html admin.css admin.js logo.png)
 PREV="$CODE_DIR.anterior"
 SERVICE_PREV="$SERVICE.anterior"
 

@@ -44,7 +44,7 @@ if ($App) {
   Verificar 'subir la app'
   ssh $Vps "chmod -R a+rX $Raiz/app"
   Verificar 'dar permisos'
-  $licencia = curl.exe -s "$Url/app/js/license.js"
+  $licencia = (curl.exe -s "$Url/app/js/license.js") -join "`n"
   if ($licencia -notmatch 'startTrial') { throw 'La app publicada no tiene la prueba gratis: algo no se subio bien (o hay cache).' }
   Ok 'la app publicada tiene el codigo de licencias y la prueba gratis'
   Write-Host "  (copia anterior en el servidor: $Raiz/app.anterior)"
@@ -66,7 +66,7 @@ if ($Sitio) {
     Verificar 'subir las imagenes'
   }
   ssh $Vps "chmod -R a+rX $Raiz/index.html $Raiz/img"
-  $pagina = curl.exe -s "$Url/"
+  $pagina = (curl.exe -s "$Url/") -join "`n"
   if ($pagina -notmatch 'Comprar licencia') { throw 'La pagina publicada no tiene el boton Comprar licencia: algo no se subio bien (o hay cache).' }
   if ($pagina -match 'descargar/zscore-lite\.apk') { throw 'La pagina publicada todavia enlaza al APK publico.' }
   Ok 'pagina de inicio publicada con el boton "Comprar licencia" y sin el link al APK publico'

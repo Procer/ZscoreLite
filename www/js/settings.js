@@ -16,6 +16,7 @@ export const DEFAULTS = {
   highContrast: false,
   ballSize: 'm',
   liveAuto: false, // transmitir en vivo cada partido apenas empieza
+  voiceName: '', // voz del anuncio; vacío = automática
 };
 
 let cache = null;

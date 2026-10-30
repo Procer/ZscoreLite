@@ -12,6 +12,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.util.Base64;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -26,6 +28,10 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Locale;
+import java.util.Set;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * Intercepta las teclas de volumen a nivel nativo para que el control remoto
@@ -39,17 +45,54 @@ import java.io.FileOutputStream;
  */
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "ZScoreRemote";
+    private TextToSpeech tts;
+    private volatile boolean ttsReady = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         hideSystemBars();
+        initTts();
         // Reintento tras el primer dibujado: en algunos equipos el primer
         // hide() se pierde porque la ventana todavía no está lista.
         getWindow().getDecorView().postDelayed(this::hideSystemBars, 400);
         if (bridge != null && bridge.getWebView() != null) {
             bridge.getWebView().addJavascriptInterface(new NativeBridge(), "ZScoreNative");
         }
+    }
+
+    private void initTts() {
+        tts = new TextToSpeech(getApplicationContext(), status -> {
+            if (status != TextToSpeech.SUCCESS || tts == null) {
+                Log.e(TAG, "TextToSpeech no arranco, status=" + status);
+                return;
+            }
+            Locale[] prefs = { new Locale("es", "AR"), new Locale("es", "MX"), new Locale("es", "ES"), new Locale("es") };
+            for (Locale l : prefs) {
+                int r = tts.setLanguage(l);
+                if (r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED) {
+                    ttsReady = true;
+                    break;
+                }
+            }
+            if (ttsReady) {
+                tts.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            } else {
+                Log.e(TAG, "TextToSpeech sin idioma espanol");
+            }
+        });
+    }
+
+    @Override
+    public void onDestroy() {
+        if (tts != null) {
+            tts.stop();
+            tts.shutdown();
+            tts = null;
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -177,6 +220,101 @@ public class MainActivity extends BridgeActivity {
                 Log.e(TAG, "openUrl fallo", e);
                 return false;
             }
+        }
+
+        /** Dice el texto con el motor de voz de Android (el speechSynthesis del
+         * WebView no suena en varios celulares). Corta lo que estuviera hablando. */
+        @JavascriptInterface
+        public boolean speak(String text) {
+            if (tts == null || !ttsReady || text == null || text.isEmpty()) return false;
+            try {
+                return tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "zs") == TextToSpeech.SUCCESS;
+            } catch (Exception e) {
+                Log.e(TAG, "speak fallo", e);
+                return false;
+            }
+        }
+
+        /** Voces en español instaladas, como JSON: [{"name":"...","lang":"es-AR"}]. */
+        @JavascriptInterface
+        public String listVoices() {
+            JSONArray out = new JSONArray();
+            try {
+                if (tts != null && ttsReady) {
+                    Set<Voice> voices = tts.getVoices();
+                    if (voices != null) {
+                        for (Voice v : voices) {
+                            if (!"spa".equals(v.getLocale().getISO3Language())) continue;
+                            if (v.getFeatures() != null && v.getFeatures().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)) continue;
+                            out.put(new JSONObject()
+                                .put("name", v.getName())
+                                .put("lang", v.getLocale().toLanguageTag())
+                                .put("online", v.isNetworkConnectionRequired()));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "listVoices fallo", e);
+            }
+            return out.toString();
+        }
+
+        /** Abre la pantalla de Android para descargar más voces (o los ajustes de voz si no existe). */
+        @JavascriptInterface
+        public boolean openVoiceInstall() {
+            String[] actions = { TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA, "com.android.settings.TTS_SETTINGS" };
+            for (String action : actions) {
+                try {
+                    Intent i = new Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    if (i.resolveActivity(getPackageManager()) == null) continue;
+                    runOnUiThread(() -> startActivity(i));
+                    return true;
+                } catch (Exception e) {
+                    Log.e(TAG, "openVoiceInstall fallo", e);
+                }
+            }
+            return false;
+        }
+
+        /** Abre los ajustes de voz de Android (motor de voz, idioma, voces instaladas). */
+        @JavascriptInterface
+        public boolean openTtsSettings() {
+            String[] actions = { "com.android.settings.TTS_SETTINGS", android.provider.Settings.ACTION_SETTINGS };
+            for (String action : actions) {
+                try {
+                    Intent i = new Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    if (i.resolveActivity(getPackageManager()) == null) continue;
+                    runOnUiThread(() -> startActivity(i));
+                    return true;
+                } catch (Exception e) {
+                    Log.e(TAG, "openTtsSettings fallo", e);
+                }
+            }
+            return false;
+        }
+
+        /** Elige la voz por nombre; vacío vuelve a la automática. */
+        @JavascriptInterface
+        public boolean setVoice(String name) {
+            if (tts == null || !ttsReady) return false;
+            try {
+                if (name == null || name.isEmpty()) {
+                    tts.setLanguage(new Locale("es", "AR"));
+                    return true;
+                }
+                for (Voice v : tts.getVoices()) {
+                    if (v.getName().equals(name)) return tts.setVoice(v) == TextToSpeech.SUCCESS;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "setVoice fallo", e);
+            }
+            return false;
+        }
+
+        /** true si el motor de voz nativo ya arrancó y tiene un idioma español usable. */
+        @JavascriptInterface
+        public boolean speakReady() {
+            return tts != null && ttsReady;
         }
 
         @JavascriptInterface

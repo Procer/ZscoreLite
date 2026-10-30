@@ -4,6 +4,7 @@
 //   POST /api/license/renovar  { token, device } -> { token }
 //   POST /api/license/prueba   { device }        -> { token, days } (prueba por autoservicio: 1 por dispositivo)
 //   POST /api/license/version  { token, device } -> { versionName, versionCode, url } (APK vigente + link corto de descarga)
+//   GET  /api/license/app?t=LINK                 -> página de descarga (código + botón); mirarla no gasta usos del link
 //   GET  /api/license/descargar?t=LINK           -> el APK (link personal de una licencia al día)
 //
 // Errores: { error: 'codigo' | 'en_uso' | 'vencida' | 'revocada' | 'demasiados' | 'prueba_usada' | 'prueba_limite' | 'sin_prueba' }.
@@ -16,10 +17,12 @@
 
 const http = require('http');
 const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const lib = require('./license-lib.cjs');
 const ops = require('./license-ops.cjs');
 const pay = require('./license-pay.cjs');
+const texts = require('./license-texts.cjs');
 const panel = require('./license-panel.cjs');
 
 const PORT = Number(process.env.PORT || 3721);
@@ -202,6 +205,79 @@ function descargar(url, ip, res) {
   fs.createReadStream(lib.APK_FILE).pipe(res);
 }
 
+/**
+ * Página de descarga: es a donde lleva el botón del email. Muestra el código y un botón grande que baja el APK.
+ * Mirar la página NO gasta usos del link: solo cuenta la descarga de verdad (/api/license/descargar).
+ * Existe porque Gmail abre los links en una ventana interna que a veces no sabe guardar archivos: acá hay un botón
+ * para abrir la misma página en Chrome y las ayudas para el caso de que Android o Play Protect pidan permisos.
+ */
+function paginaApp(req, url, ip, res) {
+  const token = url.searchParams.get('t') || '';
+  const db = lib.readDb();
+  const link = db.links[token];
+  const lic = link && db.licenses[link.code];
+  const meta = lib.readApkMeta();
+  if (!link) noteFail(ip);
+  if (!link || link.expiresAt < Date.now() || link.uses >= link.maxUses || !lic || lib.blockReason(lic)) {
+    return page(res, 403, 'Este link venció o su licencia no está vigente. Pedí uno nuevo escribiéndonos.');
+  }
+  if (!meta) return page(res, 503, 'La descarga no está disponible por el momento. Probá más tarde.');
+
+  const e = texts.esc;
+  const mb = (fs.statSync(lib.APK_FILE).size / 1e6).toFixed(1).replace('.', ',');
+  const host = String(req.headers.host || '').replace(/[^A-Za-z0-9.:-]/g, '');
+  const chromeUrl = `intent://${host}/api/license/app?t=${encodeURIComponent(token)}#Intent;scheme=https;package=com.android.chrome;end`;
+  const dlUrl = `/api/license/descargar?t=${encodeURIComponent(token)}`;
+  const vence = lic.paidUntil == null ? '' : `Vence el ${texts.fmtDate(lic.paidUntil)}. `;
+
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+  });
+  res.end(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Descargar Z-Score Lite</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0e13;color:#f5f7fa;font:16px/1.55 -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+.w{max-width:520px;margin:0 auto;padding:28px 18px 48px}.brand{font-weight:800;letter-spacing:.6px;font-size:20px}.brand b{color:#a3e635}
+h1{font-size:26px;line-height:1.2;margin:26px 0 4px}.sub{color:#9aa4b2;margin:0 0 22px}
+.card{background:#141a23;border:1px solid #232c3a;border-radius:14px;padding:18px;margin:0 0 18px}
+.lbl{font-size:12px;letter-spacing:1.3px;color:#9aa4b2;font-weight:700}
+.code{font:800 28px 'Courier New',monospace;letter-spacing:2px;margin:8px 0;word-break:break-all;-webkit-user-select:all;user-select:all}
+.btn{display:block;text-align:center;text-decoration:none;font-weight:700;font-size:18px;border-radius:12px;padding:17px 14px;margin:0 0 12px;border:0;width:100%;cursor:pointer}
+.go{background:#16a34a;color:#fff}.alt{background:#232c3a;color:#f5f7fa;font-size:15px;padding:13px 14px}
+ol{padding-left:22px;margin:8px 0}li{margin:0 0 10px}h2{font-size:13px;letter-spacing:1.3px;color:#9aa4b2;margin:26px 0 8px;text-transform:uppercase}
+.muted{color:#9aa4b2;font-size:14px}
+</style></head><body><div class="w">
+<div class="brand"><img src="/api/license/logo.png" width="46" height="43" alt="Z" style="vertical-align:middle;margin-right:10px">Z-SCORE <b>LITE</b></div>
+<h1>Descargá la app</h1>
+<p class="sub">Versión ${e(meta.versionName)} · ${mb} MB · para Android</p>
+<div class="card"><div class="lbl">TU CÓDIGO DE LICENCIA</div><div class="code" id="c">${e(lic.code)}</div>
+<div class="muted">${e(vence)}Lo vas a necesitar para activar la app.</div>
+<button class="btn alt" style="margin:12px 0 0" id="cp" type="button">Copiar el código</button></div>
+<a class="btn go" href="${e(dlUrl)}">Descargar Z-Score Lite</a>
+<a class="btn alt" href="${e(chromeUrl)}">¿No baja? Abrir en Chrome</a>
+<h2>Después de descargar</h2>
+<ol><li><b>Abrí el archivo</b> descargado: tocá la notificación de descarga o buscalo en «Descargas».</li>
+<li>Android va a mostrar avisos de seguridad (son normales: la app no viene de Google Play). Mirá abajo cómo pasarlos.</li>
+<li>Abrí <b>Z-Score Lite</b>, escribí el código y tocá <b>«Activar»</b>.</li></ol>
+<h2>Si Android te bloquea la instalación</h2>
+<div class="card"><b>«Tu teléfono no puede instalar aplicaciones desconocidas desde esta fuente»</b><br>
+<span class="muted">Tocá <b>«Ajustes»</b>, activá <b>«Permitir desde esta fuente»</b>, volvé atrás con la flecha y tocá <b>«Instalar»</b>. Es un permiso para el navegador; lo podés quitar después.</span></div>
+<div class="card"><b>Aviso de «Play Protect»</b><br>
+<span class="muted">Tocá <b>«Más detalles»</b> y después <b>«Instalar de todos modos»</b>. Aparece porque la app todavía no está en Google Play.</span></div>
+<h2>¿Algo no funciona?</h2>
+<p class="muted">Si la descarga queda trabada, tocá «Abrir en Chrome» o copiá la dirección de esta página y pegala en Chrome. Si usás iPhone, activá el mismo código en la versión web: <b>${e(String(req.headers.host || ''))}/app/</b></p>
+</div><script>
+(function(){var b=document.getElementById('cp'),c=document.getElementById('c');
+b.addEventListener('click',function(){var t=c.textContent;
+function ok(){b.textContent='¡Copiado!'}
+function fb(){var r=document.createRange();r.selectNodeContents(c);var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');ok()}catch(e){b.textContent='Mantené apretado el código para copiarlo'}}
+if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(ok,fb)}else{fb()}});})();
+</script></body></html>`);
+}
+
 /** La app (con licencia al día) pregunta cuál es la versión vigente y recibe un link corto para bajarla. */
 function version(body, ip, res) {
   const payload = lib.readToken(body.token);
@@ -242,6 +318,21 @@ async function handle(req, res) {
 
   // Panel de administración (página y API): tiene su propia autenticación y límites.
   if (panel.handles(route)) return panel.handle(req, res, url, route, clientIp(req));
+
+  // Logo para los emails y la página de descarga (es público: no tiene nada privado)
+  if (req.method === 'GET' && route === '/api/license/logo.png') {
+    try {
+      const png = fs.readFileSync(path.join(__dirname, 'panel', 'logo.png'));
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'Cache-Control': 'public, max-age=86400' });
+      return res.end(png);
+    } catch (e) { return send(res, 404, { error: 'no encontrado' }); }
+  }
+
+  if (req.method === 'GET' && route === '/api/license/app') {
+    const ip = clientIp(req);
+    if (tooManyFails(ip)) return page(res, 429, 'Demasiados intentos. Probá de nuevo en una hora.');
+    return paginaApp(req, url, ip, res);
+  }
 
   if (req.method === 'GET' && route === '/api/license/descargar') {
     const ip = clientIp(req);

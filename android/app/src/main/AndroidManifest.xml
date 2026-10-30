@@ -35,6 +35,19 @@
         </provider>
     </application>
 
+    <!-- Android 11+: sin esto la app no ve el motor de texto a voz instalado -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.tts.engine.INSTALL_TTS_DATA" />
+        </intent>
+        <intent>
+            <action android:name="com.android.settings.TTS_SETTINGS" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

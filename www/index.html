@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#0b0e13" />
+  <meta name="theme-color" content="#000000" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -50,13 +50,14 @@
       <span></span> <button class="btn-link" id="update-open">Ver novedades</button>
     </div>
     <div class="home-actions">
-      <button class="btn btn-primary btn-block" data-action="go-setup">Nuevo partido</button>
-      <button class="btn btn-ghost btn-block" data-action="go-history">Historial y ranking</button>
-      <button class="btn btn-ghost btn-block" data-action="go-settings">Configuración</button>
-      <button class="btn btn-ghost btn-block" data-action="go-last-match" id="btn-last-match" style="display:none;">Ver último partido</button>
+      <button class="btn btn-primary btn-block" data-action="go-social" id="btn-social" style="display:none;"><span class="btn-ico">🔄</span> Continuar jornada</button>
+      <button class="btn btn-primary btn-block" data-action="go-setup"><span class="btn-ico">🎾</span> Nuevo partido</button>
+      <button class="btn btn-ghost btn-block" data-action="go-history"><span class="btn-ico">🏆</span> Historial y ranking</button>
+      <button class="btn btn-ghost btn-block" data-action="go-settings"><span class="btn-ico">⚙️</span> Configuración</button>
+      <button class="btn btn-ghost btn-block" data-action="go-last-match" id="btn-last-match" style="display:none;"><span class="btn-ico">📋</span> Ver último partido</button>
     </div>
     <div class="home-footer">
-      <span class="home-version">Versión 1.5</span>
+      <span class="home-version">Versión 1.7</span>
       <a href="https://www.zscore.ar" target="_blank" rel="noopener">www.zscore.ar</a>
       <a href="https://www.zaratesystemgroup.com.ar" target="_blank" rel="noopener">Creado por ZSG</a>
     </div>
@@ -124,6 +125,9 @@
     <div class="win-banner" id="win-banner"><div class="wb-title" id="wb-title"></div><div class="wb-sub" id="wb-sub"></div></div>
     <canvas class="fx-canvas" id="fx-canvas"></canvas>
   </section>
+
+  <!-- CAMBIO DE PAREJAS (jornada social) -->
+  <section id="view-social" class="view"></section>
 
   <!-- MENU overlay (durante el partido) -->
   <div class="overlay" id="overlay-menu">

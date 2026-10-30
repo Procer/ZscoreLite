@@ -275,7 +275,10 @@ function downloadLinkFor(code) {
     const lic = db.licenses[code];
     return lic && !lib.blockReason(lic) ? lib.newLink(db, code, { hours: DOWNLOAD_LINK_HOURS, maxUses: DOWNLOAD_LINK_USES }) : null;
   });
-  return token ? `${cfg().publicUrl}/api/license/descargar?t=${token}` : null;
+  if (!token) return null;
+  const base = cfg().publicUrl;
+  // pageUrl: página con el botón de descarga (la que va primero en el email); downloadUrl: el APK directo, plan B.
+  return { pageUrl: `${base}/api/license/app?t=${token}`, downloadUrl: `${base}/api/license/descargar?t=${token}` };
 }
 
 const paymentInfo = (id, p) => ({ id, amount: p.amount, currency: p.currency, days: p.days });
@@ -303,7 +306,7 @@ async function notifyPayment(id) {
   let message;
   if (p0.kind === 'new') {
     message = texts.instructions({
-      code: lic0.code, name: lic0.customer, expiresAt: lic0.paidUntil, downloadUrl: downloadLinkFor(lic0.code), webUrl: c.webUrl,
+      code: lic0.code, name: lic0.customer, expiresAt: lic0.paidUntil, ...downloadLinkFor(lic0.code), webUrl: c.webUrl,
       support: c.support, siteUrl: c.siteUrl, payment: paymentInfo(id, p0), linkHours: DOWNLOAD_LINK_HOURS,
     });
   } else {
@@ -350,7 +353,7 @@ async function sendInstructions(code, actor) {
   if (lic.revoked) throw new ops.OpError('la licencia está revocada');
   const c = cfg();
   const message = texts.instructions({
-    code: lic.code, name: lic.customer, expiresAt: lic.paidUntil, downloadUrl: downloadLinkFor(lic.code), webUrl: c.webUrl,
+    code: lic.code, name: lic.customer, type: lic.type, expiresAt: lic.paidUntil, ...downloadLinkFor(lic.code), webUrl: c.webUrl,
     support: c.support, siteUrl: c.siteUrl, linkHours: DOWNLOAD_LINK_HOURS,
   });
   try {
@@ -392,7 +395,7 @@ async function remindExpiring() {
       if (!amountKnown) continue; // sin precio no se puede armar el link: se ve en el panel
       const link = await createLink(lic.code, {}, 'mp');
       await mailer.sendMail({ to: lic.email, ...texts.reminder({
-        code: lic.code, name: lic.customer, expiresAt: lic.paidUntil, payUrl: link.url, amount: link.amount, currency: link.currency, days: link.days, support: c.support, siteUrl: c.siteUrl,
+        code: lic.code, name: lic.customer, type: lic.type, expiresAt: lic.paidUntil, payUrl: link.url, amount: link.amount, currency: link.currency, days: link.days, support: c.support, siteUrl: c.siteUrl,
       }) });
       lib.update((d) => {
         const l = d.licenses[lic.code];
@@ -474,9 +477,23 @@ async function handleWebhook(req, res, url, onBadSignature) {
   const dataId = url.searchParams.get('data.id') || (body.data && body.data.id) || '';
   const type = url.searchParams.get('type') || url.searchParams.get('topic') || body.type || '';
 
-  if (!signatureOk(req, url.searchParams.get('data.id') || '')) {
+  // MP_SKIP_SIGNATURE=1: SOLO para pruebas con dinero de prueba. El pago igual se consulta a Mercado Pago y se valida monto/referencia.
+  const skipSig = process.env.MP_SKIP_SIGNATURE === '1';
+  if (skipSig) console.warn('pago: ATENCION - MP_SKIP_SIGNATURE=1, la firma NO se verifica (apagar antes de producción)');
+  if (!skipSig && !signatureOk(req, url.searchParams.get('data.id') || '')) {
+    try { // diagnóstico temporal: ¿alguna variante del cálculo coincide con la firma recibida?
+      const sig = String(req.headers['x-signature'] || ''); const ts = (/ts=([^,]+)/.exec(sig) || [])[1] || ''; const v1 = (/v1=([0-9a-f]+)/.exec(sig) || [])[1] || '';
+      const did = url.searchParams.get('data.id') || ''; const rid = req.headers['x-request-id'] || '';
+      const hm = (m) => crypto.createHmac('sha256', cfg().secret).update(m).digest('hex') === v1;
+      const hit = [];
+      if (hm(`id:${did.toLowerCase()};request-id:${rid};ts:${ts};`)) hit.push('normal');
+      if (hm(`id:${did};request-id:${rid};ts:${ts};`)) hit.push('id-sin-minuscula');
+      if (hm(`id:${did.toLowerCase()};ts:${ts};`)) hit.push('sin-request-id');
+      if (hm(`ts:${ts};`)) hit.push('solo-ts');
+      console.warn(`pago: diagnóstico firma -> coincide: ${hit.join(',') || 'ninguna'}; data.id=${did ? 'si' : 'no'}; request-id=${rid ? 'si' : 'no'}; ts=${ts ? 'si' : 'no'}; v1_largo=${v1.length}; secreto_largo=${String(cfg().secret).length}`);
+    } catch (e) { console.warn('pago: diagnóstico falló'); }
     onBadSignature();
-    console.warn('pago: aviso con firma inválida');
+    console.warn(`pago: aviso con firma inválida (${req.headers['x-signature'] ? 'trae x-signature: el secreto no coincide' : 'sin x-signature: aviso viejo o ajeno'}; ${url.searchParams.get('data.id') ? 'data.id' : 'id/topic'})`);
     reply(res, 401, { error: 'firma' });
     return;
   }

@@ -53,21 +53,32 @@ function encodeWord(text) {
   return /^[\x20-\x7e]*$/.test(clean) ? clean : `=?UTF-8?B?${Buffer.from(clean, 'utf8').toString('base64')}?=`;
 }
 
-function buildMessage({ from, to, subject, text }) {
-  const body = Buffer.from(String(text).replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+const base64Body = (s) => Buffer.from(String(s).replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+
+/** Con `html` arma un multipart/alternative (texto + HTML); sin `html`, un texto simple. */
+function buildMessage({ from, to, subject, text, html }) {
   const fromHeader = from.name ? `${encodeWord(from.name)} <${from.address}>` : from.address;
   const domain = from.address.split('@')[1];
-  return [
+  const head = [
     `From: ${fromHeader}`,
     `To: ${to}`,
     `Subject: ${encodeWord(subject)}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${crypto.randomBytes(12).toString('hex')}@${domain}>`,
     'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding: base64',
+  ];
+  if (!html) {
+    return [...head, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', base64Body(text)].join('\r\n');
+  }
+  const boundary = `zs_${crypto.randomBytes(12).toString('hex')}`;
+  const part = (type, content) => [`--${boundary}`, `Content-Type: ${type}; charset=UTF-8`, 'Content-Transfer-Encoding: base64', '', base64Body(content)].join('\r\n');
+  return [
+    ...head,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
     '',
-    body,
+    part('text/plain', text),
+    part('text/html', html),
+    `--${boundary}--`,
   ].join('\r\n');
 }
 
@@ -140,7 +151,7 @@ function connect(c) {
 }
 
 /** Manda un email de texto. Lanza un Error con un mensaje entendible si no se pudo. */
-async function sendMail({ to, subject, text }) {
+async function sendMail({ to, subject, text, html }) {
   const c = cfg();
   const from = parseFrom(c.from);
   if (!c.host || !from) throw new Error('el correo no está configurado en el servidor (SMTP_HOST y SMTP_FROM)');
@@ -165,7 +176,7 @@ async function sendMail({ to, subject, text }) {
     await s.command(`MAIL FROM:<${from.address}>`, [250]);
     await s.command(`RCPT TO:<${to}>`, [250, 251]);
     await s.command('DATA', [354]);
-    s.write(`${buildMessage({ from, to, subject, text })}\r\n.`);
+    s.write(`${buildMessage({ from, to, subject, text, html })}\r\n.`);
     const accepted = await s.read();
     if (accepted.code !== 250) throw new Error(`el servidor de correo no aceptó el mensaje (${accepted.code})`);
     try { await s.command('QUIT', [221]); } catch (e) { /* ya está enviado */ }

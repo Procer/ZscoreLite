@@ -363,3 +363,31 @@ Devolver la página de inicio anterior (tras el paso 10):
  Guía larga:       server\README.md (sección "Venta online automática")
  Ayuda dentro del panel: pestaña "Ayuda"
 =====================================================================
+
+
+=====================================================================
+ ESTADO AL 2026-10-13 (actualizado)
+=====================================================================
+ HECHO
+ - Pruebas en modo prueba: panel, descarga, activación, compra online con
+   comprador de prueba, emails (comprador y aviso de venta).
+ - Voz: TTS nativo de Android, APK 1.6 publicado.
+ - Precio final decidido: $5.000 por mes (30 días), para jugadores sueltos.
+ - Sitios actualizados en el repo con el precio y, en zscore.ar, una sección
+   que compara PRO y Lite (sitio\index.html y sitio-lite\index.html).
+
+ FALTA (en este orden)
+ 1. Publicar los sitios:
+      .\deploy-web.ps1 -Sitio                      (lite.zscore.ar)
+      scp -r ..\sitio\* root@66.97.38.36:/var/www/zscore/sitio/   (www.zscore.ar)
+ 2. Panel > Cobros: cargar 5000 y 30 días (hoy figura 10, de prueba).
+ 3. PRODUCCION (próxima sesión):
+      - Apagar MP_SKIP_SIGNATURE en /etc/zscore-license.env y reiniciar el servicio.
+      - Credenciales productivas de Mercado Pago con .\cambiar-token-mp.ps1
+        (Access Token y secreto del webhook del "Modo productivo").
+      - Quitar el bloque "diagnóstico temporal" de server\license-pay.cjs y
+        redesplegar con .\deploy-licencias.ps1.
+      - Compra real de $5.000, verificar que el log no diga "firma inválida".
+ 4. Después: vida de la licencia (revocar, vencer, renovar), voz en partido,
+    cuelgue en Chrome del celular, panel admin en el celular.
+=====================================================================

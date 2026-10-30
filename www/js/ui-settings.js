@@ -1,6 +1,12 @@
 import { getSettings, saveSettings, feedbackTap, BALL_SIZES } from './settings.js';
 import { getLicense, describeLicense, renew, LICENSE_REQUIRED } from './license.js';
-import { exportBackup, importBackup, listMatches } from './db.js';
+import { exportBackup, importBackup, listMatches, listPlayerNames, savePlayerName, deletePlayerName, renamePlayer } from './db.js';
+
+import { listVoices, speak } from './tts.js';
+
+function escapeAttr(t) {
+  return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
 
 function todayStamp() {
   const d = new Date();
@@ -47,9 +53,41 @@ export function initSettings({ onDataChanged }) {
       </div>`;
   }
 
+  function voiceCard(s) {
+    const voices = listVoices();
+    const canInstall = !!window.ZScoreNative?.openVoiceInstall;
+    if (voices.length < 2 && !canInstall) return '';
+    const row = (v, icon, title, sub) => `
+      <div class="voice-row${v.name === (s.voiceName || '') ? ' is-active' : ''}" data-voice="${escapeAttr(v.name)}">
+        <div class="voice-avatar">${icon}</div>
+        <div class="voice-info"><div class="voice-name">${escapeAttr(title)}</div><div class="voice-sub">${escapeAttr(sub)}</div></div>
+        <div class="voice-check">✓</div>
+      </div>`;
+    const icon = (v) => (v.gender === 'femenina' ? '♀' : v.gender === 'masculina' ? '♂' : '🎙');
+    const group = (region, label) => {
+      const list = voices.filter((v) => v.region === region);
+      return list.length
+        ? `<div class="voice-group">${label}</div>${list.map((v) => row(v, icon(v), v.title, v.sub)).join('')}`
+        : '';
+    };
+    return `
+      <div class="section-title">Voz del anuncio</div>
+      <div class="set-card voice-card">
+        <div class="match-card-meta" style="margin-bottom:10px;">Tocá una voz para elegirla y escucharla.</div>
+        ${row({ name: '' }, '✨', 'Automática', 'La mejor en español disponible')}
+        ${group('Argentina', '🇦🇷 Argentina')}
+        ${group('Latina', '🌎 Latinoamérica')}
+        ${group('Otras', '🌍 España y EE. UU.')}
+        ${canInstall ? `<button class="btn btn-ghost btn-block" id="voice-install" style="margin-top:12px;">⬇ Descargar más voces</button>
+        ${window.ZScoreNative.openTtsSettings ? '<button class="btn btn-ghost btn-block" id="voice-settings" style="margin-top:8px;">⚙ Ajustes de voz de Android</button>' : ''}
+        <div class="match-card-meta" style="margin-top:8px;">Si no ves la voz que buscás, descargala o cambiá el motor de voz en Android y volvé a abrir Ajustes para ver las nuevas.</div>` : ''}
+      </div>`;
+  }
+
   async function render() {
     const s = getSettings();
     const total = (await listMatches()).length;
+    const players = (await listPlayerNames()).sort((a, b) => a.localeCompare(b, 'es'));
     body.innerHTML = `
       <div class="section-title">Control remoto</div>
       <div class="set-card">
@@ -73,6 +111,8 @@ export function initSettings({ onDataChanged }) {
       ${toggle('vibrate', 'Vibración al tocar', 'Confirma cada toque sin mirar la pantalla', s.vibrate)}
       <button class="btn btn-ghost btn-block" id="test-feedback">Probar sonido y vibración</button>
 
+      ${voiceCard(s)}
+
       <div class="section-title">Pantalla</div>
       ${toggle('highContrast', 'Alto contraste', 'Fondo negro puro y colores más fuertes, para sol directo', s.highContrast)}
       <div class="set-card">
@@ -84,6 +124,23 @@ export function initSettings({ onDataChanged }) {
       ${toggle('liveAuto', 'Transmitir cada partido', 'Genera el link para el público apenas empieza el partido. También se puede activar desde el menú del marcador.', s.liveAuto)}
 
       ${licenseCard()}
+
+      <div class="section-title">Jugadores</div>
+      <div class="set-card">
+        <div class="match-card-meta" style="margin-bottom:10px;">Cargalos acá para tenerlos a mano al armar un partido y llevar sus estadísticas. Escribí nombre y apellido, o el apodo con el que se lo conoce.</div>
+        <div class="player-add">
+          <input type="text" class="wizard-search" id="player-new" placeholder="Nombre y apellido o apodo" autocomplete="off" />
+          <button class="btn btn-primary" id="player-add">Agregar</button>
+        </div>
+        <div class="chip-list player-list">
+          ${players.length
+            ? players.map((n) => `<span class="chip chip--edit">${escapeAttr(n)}
+                <button class="chip-act" data-act="rename" data-player="${escapeAttr(n)}" aria-label="Cambiar nombre">✎</button>
+                <button class="chip-act" data-act="delete" data-player="${escapeAttr(n)}" aria-label="Quitar">✕</button>
+              </span>`).join('')
+            : '<div class="match-card-meta">Todavía no hay jugadores cargados.</div>'}
+        </div>
+      </div>
 
       <div class="section-title">Datos</div>
       <div class="set-card">
@@ -122,6 +179,21 @@ export function initSettings({ onDataChanged }) {
       setTimeout(() => feedbackTap(0), 900);
       return;
     }
+    if (e.target.id === 'voice-install') {
+      if (!window.ZScoreNative.openVoiceInstall()) alert('Abrí Ajustes de Android → Salida de texto a voz para descargar voces.');
+      return;
+    }
+    if (e.target.id === 'voice-settings') {
+      if (!window.ZScoreNative.openTtsSettings()) alert('Abrí Ajustes de Android → Salida de texto a voz.');
+      return;
+    }
+    const voiceRow = e.target.closest('.voice-row');
+    if (voiceRow) {
+      saveSettings({ voiceName: voiceRow.dataset.voice });
+      body.querySelectorAll('.voice-row').forEach((r) => r.classList.toggle('is-active', r === voiceRow));
+      speak('Quince a treinta. Juego, Argentina.');
+      return;
+    }
     if (e.target.id === 'license-renew') {
       e.target.disabled = true;
       e.target.textContent = 'Consultando…';
@@ -130,8 +202,38 @@ export function initSettings({ onDataChanged }) {
       render();
       return;
     }
+    if (e.target.id === 'player-add') { await addPlayer(); return; }
+    const chip = e.target.closest('[data-player]');
+    if (chip) {
+      const name = chip.dataset.player;
+      if (chip.dataset.act === 'rename') {
+        const to = (prompt('Nombre correcto:', name) || '').trim().replace(/\s+/g, ' ');
+        if (!to || to === name) return;
+        try { await renamePlayer(name, to); } catch (err) { alert(err?.message || 'No se pudo cambiar el nombre.'); return; }
+        onDataChanged?.();
+        render();
+      } else if (confirm(`¿Quitar a "${name}" de la lista? Sus partidos y estadísticas no se borran.`)) {
+        await deletePlayerName(name);
+        render();
+      }
+      return;
+    }
     if (e.target.id === 'backup-export') { await doExport(); return; }
     if (e.target.id === 'backup-import') { fileInput.click(); }
+  });
+
+  async function addPlayer() {
+    const input = document.getElementById('player-new');
+    const name = input.value.trim().replace(/\s+/g, ' ');
+    if (!name) return;
+    const exists = (await listPlayerNames()).some((n) => n.toLowerCase() === name.toLowerCase());
+    if (!exists) await savePlayerName(name);
+    await render();
+    document.getElementById('player-new').focus();
+  }
+
+  body.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.id === 'player-new') addPlayer();
   });
 
   async function doExport() {

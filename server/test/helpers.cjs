@@ -74,8 +74,18 @@ function decode(raw) {
   const [head, ...rest] = raw.split('\r\n\r\n');
   const subjectLine = /^Subject: (.*)$/im.exec(head);
   const subject = (subjectLine ? subjectLine[1] : '').replace(/=\?UTF-8\?B\?(.*?)\?=/g, (m, b) => Buffer.from(b, 'base64').toString('utf8'));
-  const text = Buffer.from(rest.join('').replace(/\r\n/g, ''), 'base64').toString('utf8');
-  return { subject, text };
+  const b64 = (s) => Buffer.from(s.replace(/\r\n/g, ''), 'base64').toString('utf8');
+  const boundary = /boundary="([^"]+)"/i.exec(head);
+  if (!boundary) return { subject, text: b64(rest.join('')), html: '' };
+  // multipart/alternative: texto plano + HTML
+  const parts = {};
+  for (const chunk of rest.join('\r\n\r\n').split(`--${boundary[1]}`).slice(1)) {
+    if (chunk.startsWith('--')) break;
+    const [h, ...b] = chunk.replace(/^\r\n/, '').split('\r\n\r\n');
+    const type = /Content-Type: ([a-z/]+)/i.exec(h);
+    if (type) parts[type[1]] = b64(b.join(''));
+  }
+  return { subject, text: parts['text/plain'] || '', html: parts['text/html'] || '' };
 }
 
 /** Mercado Pago simulado: preferencias y pagos. `state.payments[id]` es lo que devuelve GET /v1/payments/:id. */

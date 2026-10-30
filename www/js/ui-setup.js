@@ -1,7 +1,8 @@
 import { describeConfig } from './scoring-engine.js';
-import { listPlayerNames, savePlayerName } from './db.js';
+import { listPlayerNames, savePlayerName, deletePlayerName, renamePlayer } from './db.js';
 import { initRemoteButton, onRemotePress } from './remote-button.js';
 import { firstTapTeam } from './settings.js';
+import { createTapChooser, hintText, legendText } from './remote-choice.js';
 
 initRemoteButton();
 
@@ -11,21 +12,26 @@ function escapeHtml(s) {
 
 // Orden maestro de preguntas. isRelevant() decide cuáles se saltean según
 // las respuestas ya dadas (así el asistente "guía" sin mostrar pasos que no aplican).
-const STEP_ORDER = [
-  'mode', 'bestof', 'gamesperset', 'targetgames', 'noad', 'supertiebreak',
-  'player-a1', 'player-a2', 'player-b1', 'player-b2',
-  'voice', 'summary',
-];
-
-function isRelevant(id, w) {
-  if (id === 'bestof' || id === 'gamesperset') return w.mode === 'sets';
-  if (id === 'targetgames') return w.mode === 'games';
-  if (id === 'supertiebreak') return w.mode === 'sets' && w.bestOf > 1;
-  return true;
+/** Pasos "¿quién saca primero?" de cada pareja; solo si la pareja tiene sus dos jugadores. */
+function serverSteps(w) {
+  const t = w.mode === 'games' ? { A: w.pairs[0], B: w.pairs[1] } : w.teams;
+  return [['server-a', t.A], ['server-b', t.B]].filter(([, p]) => p && p.p1 && p.p2).map(([id]) => id);
 }
 
-function relevantSteps(w) {
-  return STEP_ORDER.filter((id) => isRelevant(id, w));
+function stepsFor(w) {
+  if (w.mode === 'games') {
+    // Formato social: se carga cuántas parejas hay hoy y los dos jugadores de cada una.
+    const steps = ['mode', 'targetgames', 'noad', 'paircount'];
+    for (let i = 0; i < w.pairCount; i++) steps.push(`spair-${i}-1`, `spair-${i}-2`);
+    return [...steps, ...serverSteps(w), 'voice', 'summary'];
+  }
+  return [
+    'mode', 'bestof', 'gamesperset', 'noad',
+    ...(w.bestOf > 1 ? ['supertiebreak'] : []),
+    'player-a1', 'player-a2', 'player-b1', 'player-b2',
+    ...serverSteps(w),
+    'voice', 'summary',
+  ];
 }
 
 export function initSetupWizard(onStartMatch) {
@@ -45,8 +51,16 @@ export function initSetupWizard(onStartMatch) {
       noAd: true,
       superTiebreak: false,
       teams: { A: { p1: '', p2: '' }, B: { p1: '', p2: '' } },
+      firstSlot: { A: 'p1', B: 'p1' }, // jugador de cada pareja que saca primero sus games
+      pairCount: 4, // parejas que hay hoy (formato social)
+      pairs: [],
       voiceLevel: 'full',
     };
+  }
+
+  /** Parejas de la jornada social, con el largo justo para pairCount. */
+  function socialPairs() {
+    return Array.from({ length: wizard.pairCount }, (_, i) => wizard.pairs[i] || { p1: '', p2: '' });
   }
 
   function buildConfig() {
@@ -57,6 +71,8 @@ export function initSetupWizard(onStartMatch) {
       gamesPerSet: wizard.mode === 'games' ? wizard.targetGames : wizard.gamesPerSet,
       noAd: wizard.noAd,
       superTiebreakDecider: wizard.mode === 'sets' ? wizard.superTiebreak : false,
+      // Formato social: el partido termina apenas una pareja llega a X games.
+      ...(wizard.mode === 'games' ? { firstTo: true } : {}),
       // firstServer queda sin definir: lo decide el primer tanto que se
       // toque en el marcador (así se resuelve como en la cancha real,
       // jugando un punto para ver quién saca).
@@ -64,7 +80,7 @@ export function initSetupWizard(onStartMatch) {
   }
 
   function updateProgress() {
-    const seq = relevantSteps(wizard).filter((id) => id !== 'summary');
+    const seq = stepsFor(wizard).filter((id) => id !== 'summary');
     const idx = seq.indexOf(currentStepId);
     const pct = idx < 0 ? 100 : Math.round(((idx + 1) / seq.length) * 100);
     progressFill.style.width = pct + '%';
@@ -78,10 +94,8 @@ export function initSetupWizard(onStartMatch) {
   }
 
   function goNext() {
-    const seq = STEP_ORDER;
-    let idx = seq.indexOf(currentStepId) + 1;
-    while (idx < seq.length && !isRelevant(seq[idx], wizard)) idx++;
-    goTo(seq[idx] ?? 'summary');
+    const seq = stepsFor(wizard);
+    goTo(seq[seq.indexOf(currentStepId) + 1] ?? 'summary');
   }
 
   function goBack() {
@@ -96,10 +110,25 @@ export function initSetupWizard(onStartMatch) {
 
   // ---------- Renderizadores de tipos de paso ----------
 
-  function renderChoice(question, sub, options, currentValue, onPick) {
+  // Opciones que el control remoto puede elegir en el paso actual (null = ninguna).
+  let remoteOptions = null;
+
+  createTapChooser({
+    isActive: () => document.getElementById('view-setup').classList.contains('is-active'),
+    getOptions: () => remoteOptions,
+    onHint: (taps, options) => {
+      const el = document.getElementById('wizard-remote-hint');
+      if (el) el.textContent = hintText(taps, options);
+    },
+    onChoose: (i) => remoteOptions?.[i]?.pick(),
+  });
+
+  function renderChoice(question, sub, options, currentValue, onPick, { remote = false } = {}) {
+    remoteOptions = remote ? options.map((o) => ({ label: o.title, pick: () => onPick(o.value) })) : null;
     stepEl.innerHTML = `
       <div class="wizard-question">${question}</div>
       ${sub ? `<div class="wizard-sub">${sub}</div>` : ''}
+      ${remote ? `<div class="wizard-note">Control remoto — ${escapeHtml(legendText(remoteOptions))}</div><div class="remote-hint" id="wizard-remote-hint"></div>` : ''}
       <div class="option-grid option-grid--wizard" id="wizard-options"></div>
     `;
     const grid = document.getElementById('wizard-options');
@@ -115,24 +144,64 @@ export function initSetupWizard(onStartMatch) {
   }
 
   function renderPick(question, sub, items, onPick, excludeValues = []) {
+    remoteOptions = null;
+    let editing = false;
     stepEl.innerHTML = `
       <div class="wizard-question">${question}</div>
       ${sub ? `<div class="wizard-sub">${sub}</div>` : ''}
       <input type="text" class="wizard-search" id="wizard-search" placeholder="Buscar o escribir nuevo..." autocomplete="off" />
+      <div class="wizard-note">Los jugadores se cargan para llevar sus estadísticas. Escribí nombre y apellido, o el apodo con el que se lo conoce.</div>
       <div class="chip-list" id="wizard-chip-list"></div>
+      <button class="btn btn-ghost" id="wizard-edit-btn" style="margin-top:10px;">Editar lista</button>
       <button class="btn btn-primary btn-block" id="wizard-add-btn" style="display:none;"></button>
     `;
     const input = document.getElementById('wizard-search');
     const chipList = document.getElementById('wizard-chip-list');
     const addBtn = document.getElementById('wizard-add-btn');
+    const editBtn = document.getElementById('wizard-edit-btn');
+
+    async function refreshItems() {
+      playersCache = await listPlayerNames();
+      items = playersCache;
+      draw(input.value);
+    }
+
+    editBtn.addEventListener('click', () => {
+      editing = !editing;
+      editBtn.textContent = editing ? 'Listo' : 'Editar lista';
+      draw(input.value);
+    });
 
     function draw(filterText) {
       const f = (filterText || '').trim().toLowerCase();
       const visible = items.filter((it) => !excludeValues.includes(it) && it.toLowerCase().includes(f));
-      chipList.innerHTML = visible.map((it) => `<button class="chip" data-value="${escapeHtml(it)}">${escapeHtml(it)}</button>`).join('');
-      chipList.querySelectorAll('.chip').forEach((btn) => {
-        btn.addEventListener('click', () => onPick(btn.dataset.value));
-      });
+      editBtn.style.display = items.length ? '' : 'none';
+      if (editing) {
+        chipList.innerHTML = visible.map((it) => `
+          <span class="chip chip--edit">${escapeHtml(it)}
+            <button class="chip-act" data-act="rename" data-value="${escapeHtml(it)}" aria-label="Cambiar nombre">✎</button>
+            <button class="chip-act" data-act="delete" data-value="${escapeHtml(it)}" aria-label="Eliminar">✕</button>
+          </span>`).join('');
+        chipList.querySelectorAll('.chip-act').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const name = btn.dataset.value;
+            if (btn.dataset.act === 'delete') {
+              if (!confirm(`¿Quitar a "${name}" de la lista? Sus partidos y estadísticas no se borran.`)) return;
+              await deletePlayerName(name);
+            } else {
+              const to = (prompt('Nombre correcto:', name) || '').trim().replace(/\s+/g, ' ');
+              if (!to || to === name) return;
+              try { await renamePlayer(name, to); } catch (err) { alert(err?.message || 'No se pudo cambiar el nombre.'); return; }
+            }
+            await refreshItems();
+          });
+        });
+      } else {
+        chipList.innerHTML = visible.map((it) => `<button class="chip" data-value="${escapeHtml(it)}">${escapeHtml(it)}</button>`).join('');
+        chipList.querySelectorAll('.chip').forEach((btn) => {
+          btn.addEventListener('click', () => onPick(btn.dataset.value));
+        });
+      }
       const exact = items.some((it) => it.toLowerCase() === f);
       if (f && !exact) {
         addBtn.style.display = '';
@@ -156,6 +225,7 @@ export function initSetupWizard(onStartMatch) {
   }
 
   function renderText(question, sub, currentValue, { optional = false } = {}, onDone) {
+    remoteOptions = null;
     stepEl.innerHTML = `
       <div class="wizard-question">${question}</div>
       ${sub ? `<div class="wizard-sub">${sub}</div>` : ''}
@@ -192,11 +262,25 @@ export function initSetupWizard(onStartMatch) {
         { value: 4, title: '4 games', sub: 'Set corto' },
       ], wizard.gamesPerSet, (v) => { wizard.gamesPerSet = v; goNext(); });
     } else if (id === 'targetgames') {
-      renderChoice('¿A cuántos games se juega?', 'Formato social para ir rotando parejas', [
+      renderChoice('¿A cuántos games se juega?', 'Gana la primera pareja que llegue. Después rota.', [
         { value: 4, title: '4 games' },
         { value: 6, title: '6 games' },
         { value: 8, title: '8 games' },
       ], wizard.targetGames, (v) => { wizard.targetGames = v; goNext(); });
+    } else if (id === 'paircount') {
+      renderChoice('¿Cuántas parejas hay hoy?', 'La que gana se queda en cancha y entra la siguiente. Después podés elegir quién sigue.',
+        [2, 3, 4, 5, 6, 7, 8].map((n) => ({ value: n, title: `${n} parejas`, sub: n === 2 ? 'Sin rotación' : undefined })),
+        wizard.pairCount, (v) => { wizard.pairCount = v; wizard.pairs = socialPairs(); goNext(); });
+    } else if (id.startsWith('spair-')) {
+      const [, idx, slot] = id.match(/spair-(\d+)-(1|2)/);
+      const i = Number(idx);
+      wizard.pairs = socialPairs();
+      const exclude = wizard.pairs.flatMap((p) => [p.p1, p.p2]).filter(Boolean);
+      renderPick(`¿Jugador ${slot} de la Pareja ${i + 1}?`, null, playersCache, (name) => {
+        wizard.pairs[i][`p${slot}`] = name;
+        savePlayerName(name).then(() => listPlayerNames()).then((list) => { playersCache = list; });
+        goNext();
+      }, exclude);
     } else if (id === 'noad') {
       renderChoice('¿Punto de oro?', 'Muerte súbita en 40-40, sin ventaja', [
         { value: true, title: 'Sí, punto de oro' },
@@ -223,6 +307,13 @@ export function initSetupWizard(onStartMatch) {
         savePlayerName(name).then(() => listPlayerNames()).then((list) => { playersCache = list; });
         goNext();
       }, exclude);
+    } else if (id === 'server-a' || id === 'server-b') {
+      const side = id === 'server-a' ? 'A' : 'B';
+      const t = startingTeams()[side];
+      renderChoice(`¿Quién saca primero de ${escapeHtml(pairText(t))}?`,
+        'Después se alternan los dos en cada game que saque la pareja.',
+        [{ value: 'p1', title: t.p1 }, { value: 'p2', title: t.p2 }],
+        wizard.firstSlot[side], (v) => { wizard.firstSlot[side] = v; goNext(); }, { remote: true });
     } else if (id === 'voice') {
       renderChoice('¿Anuncio por voz?', null, [
         { value: 'full', title: 'Completo', sub: 'Tanto a tanto, estilo árbitro' },
@@ -234,18 +325,26 @@ export function initSetupWizard(onStartMatch) {
     }
   }
 
-  function teamPreview(teamKey) {
-    const t = wizard.teams[teamKey];
-    const parts = [t.p1, t.p2].filter(Boolean);
-    return parts.length ? parts.join(' / ') : `Pareja ${teamKey}`;
+  const pairText = (p) => [p.p1, p.p2].filter(Boolean).join(' / ') || 'Sin nombre';
+
+  /** Equipos del primer partido: en formato social, las dos primeras parejas. */
+  function startingTeams() {
+    if (wizard.mode !== 'games') return wizard.teams;
+    const pairs = socialPairs();
+    return { A: pairs[0], B: pairs[1] };
   }
 
   function renderSummary() {
+    remoteOptions = null;
     const cfg = buildConfig();
+    const social = wizard.mode === 'games';
+    const first = startingTeams();
+    const waiting = social ? socialPairs().slice(2) : [];
     stepEl.innerHTML = `
       <div class="wizard-question">Todo listo</div>
       <div class="summary-card">
-        <div class="summary-card-row"><strong>${escapeHtml(teamPreview('A'))}</strong> vs <strong>${escapeHtml(teamPreview('B'))}</strong></div>
+        <div class="summary-card-row"><strong>${escapeHtml(pairText(first.A))}</strong> vs <strong>${escapeHtml(pairText(first.B))}</strong></div>
+        ${waiting.length ? `<div class="summary-card-row muted">Esperan: ${escapeHtml(waiting.map(pairText).join(' · '))}</div>` : ''}
         <div class="summary-card-row muted">${escapeHtml(describeConfig(cfg))}</div>
         <div class="summary-card-row muted">Al empezar, el primer toque elige quién saca. Después suma tantos.</div>
         <div class="summary-card-row muted">Control remoto: ${firstTapTeam() === 'A' ? '1 toque = lado izquierdo, 2 toques = lado derecho' : '1 toque = lado derecho, 2 toques = lado izquierdo'}, 3 toques = deshacer el último tanto.</div>
@@ -271,8 +370,11 @@ export function initSetupWizard(onStartMatch) {
         id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         sport: 'padel',
         config: buildConfig(),
-        teams: wizard.teams,
+        teams: startingTeams(),
         voiceLevel: wizard.voiceLevel,
+        firstSlot: { ...wizard.firstSlot },
+        // Con 3 o más parejas se arma una jornada: la que gana sigue y entra la próxima.
+        social: wizard.mode === 'games' && wizard.pairCount > 2 ? { pairs: socialPairs(), firstSlot: [wizard.firstSlot.A, wizard.firstSlot.B] } : null,
       };
       onStartMatch(meta);
     });

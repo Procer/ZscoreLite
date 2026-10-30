@@ -111,6 +111,22 @@ function parse(raw) {
 test.before(async () => { port = await listen(net.createServer((socket) => handle(socket))); });
 test.after(() => { for (const srv of servers) srv.close(); });
 
+test('con HTML sale un multipart/alternative: texto plano + HTML, ambos íntegros', () => {
+  const text = 'Hola Ñandú\nTu código: ZSL-AAAA-BBBB';
+  const html = '<p>Hola <b>Ñandú</b></p><p>Tu código: ZSL-AAAA-BBBB</p>';
+  const raw = mail.buildMessage({ from: { name: 'Z-Score Lite', address: 'licencias@ejemplo.com' }, to: 'cliente@ejemplo.com', subject: 'Prueba', text, html });
+  assert.match(raw, /Content-Type: multipart\/alternative; boundary="(zs_[0-9a-f]+)"/);
+  const boundary = /boundary="([^"]+)"/.exec(raw)[1];
+  const parts = raw.split(`--${boundary}`).slice(1, -1).map((p) => {
+    const [h, ...b] = p.replace(/^\r\n/, '').split('\r\n\r\n');
+    return { type: /Content-Type: ([a-z/]+)/.exec(h)[1], body: Buffer.from(b.join('').replace(/\r\n/g, ''), 'base64').toString('utf8') };
+  });
+  assert.deepEqual(parts.map((p) => p.type), ['text/plain', 'text/html']);
+  assert.equal(parts[0].body.replace(/\r\n/g, '\n'), text);
+  assert.equal(parts[1].body, html);
+  assert.ok(raw.trimEnd().endsWith(`--${boundary}--`), 'el multipart se cierra');
+});
+
 test('manda un email con acentos, asunto codificado y cuerpo íntegro', async () => {
   configure();
   inbox.length = 0;

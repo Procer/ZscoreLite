@@ -44,6 +44,41 @@ function h(tag, props = {}, ...kids) {
   return el;
 }
 
+const ICONS = {
+  home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  key: 'M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4',
+  card: 'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20',
+  phone: 'M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2',
+  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
+  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3',
+  refresh: 'M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5',
+  lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
+  logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  plus: 'M12 5v14M5 12h14',
+  check: 'M20 6 9 17l-5-5',
+  clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+  alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
+  ban: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM4.9 4.9l14.2 14.2',
+  gift: 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z',
+  flask: 'M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9V3M7.5 15h9',
+  money: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
+  sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+};
+
+/** Ícono SVG de trazo (se arma con el DOM: nada de innerHTML). */
+function icon(name, cls = '') {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('class', `ico ${cls}`.trim());
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('d', ICONS[name] || '');
+  svg.append(path);
+  return svg;
+}
+
 const fmtDate = (ms) => (ms == null ? '—' : new Date(ms).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }));
 const fmtDateTime = (ms) => (ms == null ? 'nunca' : new Date(ms).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }));
 const money = (n, cur) => (n == null ? '—' : `${new Intl.NumberFormat('es-AR').format(n)} ${cur || ''}`.trim());
@@ -109,7 +144,7 @@ function showLogin(message = '') {
   const err = h('p', { class: 'error', role: 'alert', text: message });
   const user = h('input', { id: 'u', name: 'user', autocomplete: 'username', value: 'admin', required: true });
   const pass = h('input', { id: 'p', name: 'password', type: 'password', autocomplete: 'current-password', required: true });
-  const submit = h('button', { class: 'btn primary', type: 'submit', text: 'Ingresar' });
+  const submit = h('button', { class: 'btn primary block', type: 'submit', text: 'Ingresar' });
   const form = h('form', {
     onsubmit: async (ev) => {
       ev.preventDefault();
@@ -127,12 +162,15 @@ function showLogin(message = '') {
       } finally { submit.disabled = false; }
     },
   },
-  h('h1', { text: 'Z-Score Lite' }),
-  h('p', { class: 'hint', text: 'Panel de licencias' }),
   h('label', {}, 'Usuario', user),
   h('label', {}, 'Contraseña', pass),
   err, submit);
-  app.replaceChildren(h('div', { class: 'login' }, form));
+  app.replaceChildren(h('div', { class: 'login' },
+    h('button', { class: 'btn ghost icon login-theme', type: 'button', 'aria-label': isLight() ? 'Modo oscuro' : 'Modo claro', onclick: toggleTheme }, icon(isLight() ? 'moon' : 'sun')),
+    h('div', { class: 'login-card' },
+    h('div', { class: 'login-logo' }, h('img', { src: '/admin/logo.png', alt: 'Z-Score' }),
+      h('div', {}, h('h1', {}, 'Z-Score ', h('b', { text: 'Lite' })), h('p', { class: 'hint', text: 'Panel de licencias' }))),
+    form)));
   pass.focus();
 }
 
@@ -154,25 +192,69 @@ function upsert(lic) {
 
 // ---------- Estructura general ----------
 
-const TABS = [['resumen', 'Resumen'], ['licencias', 'Licencias'], ['cobros', 'Cobros'], ['apk', 'App (APK)'], ['ayuda', 'Ayuda']];
+const TABS = [['resumen', 'Resumen', 'home'], ['licencias', 'Licencias', 'key'], ['cobros', 'Cobros', 'card'], ['apk', 'App', 'phone'], ['ayuda', 'Ayuda', 'help']];
+
+async function logoutNow() {
+  try { await api('POST', '/logout', {}); } catch (e) { /* igual se sale */ }
+  state.csrf = null;
+  showLogin();
+}
+
+// Tema claro/oscuro: sin elegir, sigue al dispositivo; al elegir, se recuerda en este navegador.
+function isLight() {
+  const t = document.documentElement.getAttribute('data-theme');
+  return t ? t === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches;
+}
+
+function toggleTheme() {
+  const next = isLight() ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('zsl-admin-theme', next); } catch (e) { /* sin almacenamiento */ }
+  if (state.csrf) showApp(); else showLogin();
+}
+
+try {
+  const saved = localStorage.getItem('zsl-admin-theme');
+  if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+} catch (e) { /* sin almacenamiento */ }
+
+function refreshNow(button) {
+  return run(button, async () => { await load(); showApp(); toast('Actualizado'); });
+}
+
+function goTab(id) {
+  state.tab = id;
+  showApp();
+  window.scrollTo(0, 0);
+}
 
 function showApp() {
-  const tabs = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([id, label]) => h('button', {
-    class: 'tab', role: 'tab', 'aria-selected': String(state.tab === id), text: label,
-    onclick: () => { state.tab = id; showApp(); },
-  })));
-  const top = h('header', { class: 'top' }, h('div', { class: 'wrap' },
-    h('div', { class: 'brand' }, 'Z-Score ', h('span', { text: 'Lite' })),
-    tabs,
-    h('span', { class: 'who', text: state.user || '' }),
-    h('button', { class: 'btn small', text: 'Contraseña', onclick: openPassword }),
-    h('button', { class: 'btn small', text: 'Actualizar', onclick: (ev) => run(ev.currentTarget, async () => { await load(); showApp(); toast('Actualizado'); }) }),
-    h('button', {
-      class: 'btn small', text: 'Salir',
-      onclick: async () => { try { await api('POST', '/logout', {}); } catch (e) { /* igual se sale */ } state.csrf = null; showLogin(); },
-    })));
+  const y = window.scrollY;
+  const brand = () => h('div', { class: 'brand' }, h('img', { src: '/admin/logo.png', alt: '' }),
+    h('div', {}, h('div', {}, 'Z-Score ', h('b', { text: 'Lite' })), h('small', { text: 'Panel de licencias' })));
+  const navBtn = (cls, id, label, ic) => h('button', {
+    class: cls, role: 'tab', 'aria-selected': String(state.tab === id), 'aria-label': label, onclick: () => goTab(id),
+  }, icon(ic), cls === 'bn' ? h('span', { text: label }) : label);
+
+  const side = h('aside', { class: 'side' }, brand(),
+    h('nav', { class: 'nav', role: 'tablist' }, TABS.map(([id, label, ic]) => navBtn('nav-item', id, label, ic))),
+    h('div', { class: 'side-foot' },
+      h('span', { class: 'who', text: state.user ? `Sesión: ${state.user}` : '' }),
+      h('button', { class: 'nav-item', onclick: (ev) => refreshNow(ev.currentTarget) }, icon('refresh'), 'Actualizar'),
+      h('button', { class: 'nav-item', onclick: toggleTheme }, icon(isLight() ? 'moon' : 'sun'), isLight() ? 'Modo oscuro' : 'Modo claro'),
+      h('button', { class: 'nav-item', onclick: openPassword }, icon('lock'), 'Contraseña'),
+      h('button', { class: 'nav-item', onclick: logoutNow }, icon('logout'), 'Salir')));
+
+  const mtop = h('header', { class: 'mtop' }, brand(),
+    h('button', { class: 'btn ghost icon', 'aria-label': 'Actualizar', onclick: (ev) => refreshNow(ev.currentTarget) }, icon('refresh')),
+    h('button', { class: 'btn ghost icon', 'aria-label': isLight() ? 'Modo oscuro' : 'Modo claro', onclick: toggleTheme }, icon(isLight() ? 'moon' : 'sun')),
+    h('button', { class: 'btn ghost icon', 'aria-label': 'Cambiar contraseña', onclick: openPassword }, icon('lock')),
+    h('button', { class: 'btn ghost icon', 'aria-label': 'Salir', onclick: logoutNow }, icon('logout')));
+
+  const bottom = h('nav', { class: 'bottomnav', role: 'tablist' }, TABS.map(([id, label, ic]) => navBtn('bn', id, label, ic)));
   const view = { resumen: viewSummary, licencias: viewLicenses, cobros: viewPayments, apk: viewApk, ayuda: viewHelp }[state.tab]();
-  app.replaceChildren(top, h('main', { class: 'wrap' }, view));
+  app.replaceChildren(h('div', { class: 'shell' }, side, h('div', {}, mtop, h('main', { class: 'main' }, h('div', { class: 'view' }, view)))), bottom);
+  window.scrollTo(0, y);
 }
 
 // ---------- Resumen ----------
@@ -202,20 +284,21 @@ function viewSummary() {
   for (const l of active.filter((x) => x.type === 'paga' && x.price != null)) worth[l.currency] = (worth[l.currency] || 0) + l.price;
   const worthText = Object.keys(worth).length ? Object.entries(worth).map(([c, n]) => money(n, c)).join(' + ') : '—';
 
-  const stat = (n, label, cls, filter) => h('button', { class: `stat ${cls || ''}`, onclick: () => goLicenses(filter) }, h('span', { class: 'n', text: String(n) }), h('span', { class: 'l', text: label }));
+  const stat = (n, label, cls, filter, ic) => h('button', { class: `stat ${cls || ''}`, onclick: () => goLicenses(filter) },
+    h('span', { class: 'ic' }, icon(ic)), h('span', { class: 'n', text: String(n) }), h('span', { class: 'l', text: label }));
   const stats = h('div', { class: 'stats' },
-    stat(active.length, 'Activas', 'good', { estado: 'activa' }),
-    stat(by((l) => classify(l).expiring).length, `Vencen en ${WARN_DAYS} días`, 'warn', { estado: 'porvencer' }),
-    stat(by((l) => l.state === 'vencida').length, 'Vencidas', 'bad', { estado: 'vencida' }),
-    stat(by((l) => l.state === 'revocada').length, 'Revocadas', '', { estado: 'revocada' }),
-    stat(by((l) => l.type === 'prueba' && l.state === 'activa').length, 'Pruebas en curso', '', { tipo: 'prueba', estado: 'activa' }),
-    stat(by((l) => l.type === 'cortesia').length, 'Cortesías', '', { tipo: 'cortesia' }),
-    h('div', { class: 'stat' }, h('span', { class: 'n money', text: worthText }), h('span', { class: 'l', text: 'Pagas activas (precio cargado)' })),
-    h('div', { class: 'stat' }, h('span', { class: 'n money', text: state.pagos.month.length ? state.pagos.month.map((m) => money(m.total, m.currency)).join(' + ') : '—' }),
+    stat(active.length, 'Activas', 'good', { estado: 'activa' }, 'check'),
+    stat(by((l) => classify(l).expiring).length, `Vencen en ${WARN_DAYS} días`, 'warn', { estado: 'porvencer' }, 'clock'),
+    stat(by((l) => l.state === 'vencida').length, 'Vencidas', 'bad', { estado: 'vencida' }, 'alert'),
+    stat(by((l) => l.state === 'revocada').length, 'Revocadas', '', { estado: 'revocada' }, 'ban'),
+    stat(by((l) => l.type === 'prueba' && l.state === 'activa').length, 'Pruebas en curso', 'info', { tipo: 'prueba', estado: 'activa' }, 'flask'),
+    stat(by((l) => l.type === 'cortesia').length, 'Cortesías', '', { tipo: 'cortesia' }, 'gift'),
+    h('div', { class: 'stat' }, h('span', { class: 'ic' }, icon('money')), h('span', { class: 'n money', text: worthText }), h('span', { class: 'l', text: 'Pagas activas (precio cargado)' })),
+    h('div', { class: 'stat good' }, h('span', { class: 'ic' }, icon('card')), h('span', { class: 'n money', text: state.pagos.month.length ? state.pagos.month.map((m) => money(m.total, m.currency)).join(' + ') : '—' }),
       h('span', { class: 'l', text: state.pagos.configured ? 'Cobrado este mes (Mercado Pago)' : 'Cobrado este mes (Mercado Pago sin activar)' })));
 
   const group = (title, list, describe) => h('section', { class: 'card' },
-    h('h3', { text: `${title} (${list.length})` }),
+    h('h3', { class: 'card-title' }, title, h('span', { class: 'count-pill', text: String(list.length) })),
     list.length ? h('div', { class: 'todo' }, list.slice(0, 8).map((l) => h('button', { class: 'todo-item', onclick: () => openDetail(l.code) },
       h('span', { class: 'mono', text: l.code }),
       h('span', { class: 'grow', text: l.customer || l.note || '—' }),
@@ -225,10 +308,10 @@ function viewSummary() {
   const left = (l) => { const d = daysLeft(l); return d <= 0 ? 'vence hoy' : `${d} día${d === 1 ? '' : 's'}`; };
   return h('div', { class: 'stack' },
     h('div', { class: 'section-head' }, h('h2', { text: 'Resumen' }),
-      h('button', { class: 'btn primary', text: 'Nueva licencia', onclick: openCreate })),
+      h('button', { class: 'btn primary', onclick: openCreate }, icon('plus', 'sm'), 'Nueva licencia')),
     stats,
     h('h2', { text: 'Para atender' }),
-    h('div', { class: 'stack' },
+    h('div', { class: 'attention' },
       state.pagos.review.length ? group('Pagos de Mercado Pago para revisar', state.pagos.review.map((p) => ({ code: p.code, customer: (state.licenses.find((l) => l.code === p.code) || {}).customer, note: '', status: p.status })),
         (l) => PAY_STATUS[l.status] || l.status) : null,
       state.pagos.rows.some((r) => r.status === 'approved' && ['error', 'sin_email', 'sin_smtp'].includes(r.mail))
@@ -280,11 +363,18 @@ function viewLicenses() {
     const rows = state.licenses.filter(matches).sort((a, b) => compare(a, b, state.sort.key) * state.sort.dir);
     count.textContent = `${rows.length} de ${state.licenses.length}`;
     tbody.replaceChildren(...rows.map((l) => h('tr', { tabindex: '0', onclick: () => openDetail(l.code), onkeydown: (ev) => { if (ev.key === 'Enter') openDetail(l.code); } },
-      COLUMNS.map(([, , cell, cls]) => h('td', { class: cls }, cell(l))))));
-    if (!rows.length) tbody.replaceChildren(h('tr', {}, h('td', { colspan: String(COLUMNS.length), class: 'empty', text: 'No hay licencias con ese filtro.' })));
+      COLUMNS.map(([, label, cell, cls]) => h('td', { class: cls, 'data-label': label }, cell(l))))));
+    if (!rows.length) tbody.replaceChildren(h('tr', {}, h('td', { colspan: String(COLUMNS.length), class: 'empty', text: state.licenses.length ? 'No hay licencias con ese filtro.' : 'Todavía no hay licencias. Creá la primera con "Nueva licencia".' })));
   };
-  const q = h('input', { type: 'search', placeholder: 'Código, cliente, contacto o nota', value: state.filter.q, 'aria-label': 'Buscar' });
+  const q = h('input', { type: 'search', placeholder: 'Buscar por código, cliente, contacto o nota', value: state.filter.q, 'aria-label': 'Buscar' });
   q.addEventListener('input', () => { state.filter.q = q.value; paint(); });
+  const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Estado' });
+  const ESTADOS = [['', 'Todas'], ['activa', 'Activas'], ['porvencer', 'Por vencer'], ['vencida', 'Vencidas'], ['revocada', 'Revocadas']];
+  const paintChips = () => chips.replaceChildren(...ESTADOS.map(([v, t]) => h('button', {
+    class: 'chip', type: 'button', text: t, 'aria-pressed': String(state.filter.estado === v),
+    onclick: () => { state.filter.estado = v; paintChips(); paint(); },
+  })));
+  paintChips();
   const select = (key, label, options) => {
     const el = h('select', { 'aria-label': label }, options.map(([v, t]) => h('option', { value: v, text: t, selected: state.filter[key] === v })));
     el.addEventListener('change', () => { state.filter[key] = el.value; paint(); });
@@ -296,11 +386,12 @@ function viewLicenses() {
   })));
   paint();
   return h('div', { class: 'stack' },
-    h('div', { class: 'section-head' }, h('h2', { text: 'Licencias' }), count, h('span', { class: 'spacer' }),
-      h('button', { class: 'btn primary', text: 'Nueva licencia', onclick: openCreate })),
-    h('div', { class: 'row' }, h('label', { class: 'grow2' }, 'Buscar', q),
-      h('label', {}, 'Estado', select('estado', 'Estado', [['', 'Todos'], ['activa', 'Activas'], ['porvencer', `Vencen en ${WARN_DAYS} días`], ['vencida', 'Vencidas'], ['revocada', 'Revocadas']])),
-      h('label', {}, 'Tipo', select('tipo', 'Tipo', [['', 'Todos'], ['paga', 'Pagas'], ['prueba', 'Pruebas'], ['cortesia', 'Cortesías']]))),
+    h('div', { class: 'section-head' }, h('h2', { text: 'Licencias' }), count,
+      h('button', { class: 'btn primary', onclick: openCreate }, icon('plus', 'sm'), 'Nueva licencia')),
+    h('div', { class: 'toolbar' },
+      h('div', { class: 'toolbar-row' }, h('div', { class: 'search' }, icon('search', 'sm'), q),
+        select('tipo', 'Tipo', [['', 'Todos los tipos'], ['paga', 'Pagas'], ['prueba', 'Pruebas'], ['cortesia', 'Cortesías']])),
+      chips),
     h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, head), tbody)));
 }
 
@@ -626,23 +717,23 @@ function viewPayments() {
     ? h('div', { class: 'table-wrap' }, h('table', {},
       h('thead', {}, h('tr', {}, ['Fecha', 'Cliente', 'Código', 'Tipo', 'Monto', 'Días', 'Vence', 'Estado', 'Email'].map((t) => h('th', { scope: 'col', text: t })))),
       h('tbody', {}, pg.rows.map((r) => h('tr', { tabindex: '0', onclick: () => { if (r.code) openDetail(r.code); }, onkeydown: (ev) => { if (ev.key === 'Enter' && r.code) openDetail(r.code); } },
-        h('td', { text: fmtDateTime(r.at) }),
-        h('td', { class: 'clip', text: r.customer || r.email || '—' }),
-        h('td', {}, h('span', { class: 'mono', text: r.code || '—' })),
-        h('td', { text: r.kind === 'new' ? 'Compra' : 'Renovación' }),
-        h('td', { text: money(r.amount, r.currency) }),
-        h('td', { text: r.days ? String(r.days) : '—' }),
-        h('td', { text: r.paidUntil == null ? '—' : fmtDate(r.paidUntil) }),
-        h('td', {}, h('span', { class: `badge ${r.status === 'approved' ? 'activa' : 'vencida'}`, text: PAY_ROW_STATUS[r.status] || r.status })),
-        h('td', { title: r.mailError || r.mailTo || '', text: MAIL_STATUS[r.mail] || (r.status === 'approved' ? '—' : '') }))))))
-    : h('p', { class: 'empty', text: 'Todavía no hay pagos.' });
+        h('td', { 'data-label': 'Fecha', text: fmtDateTime(r.at) }),
+        h('td', { class: 'clip', 'data-label': 'Cliente', text: r.customer || r.email || '—' }),
+        h('td', { 'data-label': 'Código' }, h('span', { class: 'mono', text: r.code || '—' })),
+        h('td', { 'data-label': 'Tipo', text: r.kind === 'new' ? 'Compra' : 'Renovación' }),
+        h('td', { 'data-label': 'Monto', text: money(r.amount, r.currency) }),
+        h('td', { 'data-label': 'Días', text: r.days ? String(r.days) : '—' }),
+        h('td', { 'data-label': 'Vence', text: r.paidUntil == null ? '—' : fmtDate(r.paidUntil) }),
+        h('td', { 'data-label': 'Estado' }, h('span', { class: `badge ${r.status === 'approved' ? 'activa' : 'vencida'}`, text: PAY_ROW_STATUS[r.status] || r.status })),
+        h('td', { 'data-label': 'Email', title: r.mailError || r.mailTo || '', text: MAIL_STATUS[r.mail] || (r.status === 'approved' ? '—' : '') }))))))
+    : h('p', { class: 'empty big', text: 'Todavía no hay pagos.' });
 
   return h('div', { class: 'stack' },
     h('div', { class: 'section-head' }, h('h2', { text: 'Cobros' })),
     h('section', { class: 'card stack' },
       h('h3', { text: 'Venta online' }),
       h('p', { class: 'hint', text: 'Cuando alguien paga, se crea sola su licencia y le llega por email el código, el link de descarga y los pasos. A vos te llega un aviso.' }),
-      h('div', { class: 'row' }, chip(pg.configured, 'Mercado Pago'), chip(pg.mailConfigured, 'Envío de emails'), testMail),
+      h('div', { class: 'status-row' }, chip(pg.configured, 'Mercado Pago'), chip(pg.mailConfigured, 'Envío de emails'), testMail),
       form, saleLink),
     h('section', { class: 'card stack' },
       h('h3', { text: 'Pagos recibidos' }),
@@ -671,7 +762,7 @@ function viewHelp() {
         'El cliente instala la app, escribe el código una sola vez y queda atado a su celular. En la ficha vas a ver "Dispositivos 1 de 1" y la última conexión.',
         'Cuando pague de nuevo, entrá a su ficha y usá "Registrar pago / extender".'),
       p('Si el cliente compra online, los pasos 1 a 4 pasan solos (ver "Venta online automática").'),
-      p('Importante: hoy la app todavía NO le exige licencia a nadie (esa llave se prende en una etapa posterior, después de probar todo). Mientras tanto el código se puede cargar, pero la app no bloquea.')),
+      p('La app exige licencia: sin un código activo no deja jugar. No hay prueba gratis automática; las pruebas las das vos con una licencia de tipo Prueba o Cortesía.')),
 
     helpSection('Tipos de licencia', false,
       li('Paga: dura lo que sumes (30 días por defecto). Se renueva con "Extender" cada vez que paga.',
@@ -752,7 +843,7 @@ function viewHelp() {
       li('No hace débito automático ni suscripción: cada período se cobra con un link nuevo (el aviso por email antes de vencer sale solo).',
         'No manda WhatsApp: solo emails.',
         'No tiene gráficos de ingresos ni estadísticas de uso (solo el total cobrado del mes).',
-        'Las pruebas gratis se piden solas desde la app (14 días, una por celular); aparecen acá como "Prueba autoservicio" y sin datos de contacto.')));
+        'No hay prueba gratis automática desde la app: las pruebas se dan a mano con licencias de tipo Prueba o Cortesía.')));
 }
 
 // ---------- Cambiar contraseña ----------
