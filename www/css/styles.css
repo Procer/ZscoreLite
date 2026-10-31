@@ -1715,3 +1715,40 @@ body[data-view="home"] .view.is-active, body[data-view="history"] .view.is-activ
 #tabbar { background: var(--bg); border-top: 1px solid var(--border); }
 .home-card--main .hc-ico { background: #2a1f08; color: var(--accent); }
 .home-card--main .hc-go { color: #2a1f08; }
+
+/* ===== Grafito y ambar: orden nuevo =====
+   Inicio: pregunta grande, filas sobrias y el boton principal abajo.
+   Marcador: dos mitades planas separadas por una linea fina (sigue horizontal).
+   Historial: filas con linea fina en lugar de tarjetas. Barra inferior solo con texto. */
+#view-home .home-top { justify-content: space-between; align-items: baseline; padding: 6px 2px 0; }
+#view-home .home-title { font-size: 22px; }
+.home-tag { font: 500 11px var(--sans, system-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); }
+.home-q { margin: 26px 0 8px; width: 100%; max-width: 420px; font: 600 clamp(34px, 11vw, 46px)/1.05 var(--display); letter-spacing: -.01em; }
+.home-q i { color: var(--accent); }
+#view-home .home-actions { flex: 1; display: flex; flex-direction: column; gap: 10px; padding-bottom: calc(96px + var(--safe-bottom)); }
+#view-home .home-card { padding: 14px 18px; border-radius: 999px; min-height: 52px; }
+#view-home .home-card .hc-ico, #view-home .home-card small { display: none; }
+#view-home .home-card b { font: 500 15px var(--sans, system-ui); letter-spacing: 0; color: var(--text); }
+#view-home .home-card .hc-go { font-size: 20px; }
+#view-home .home-card--main { order: 9; margin-top: auto; padding: 17px 22px; }
+#view-home .home-card--main b { font: 700 16px var(--sans, system-ui); color: #2a1f08; }
+#view-home .home-footer { display: none; }
+
+#tabbar { align-items: stretch; gap: 0; padding-bottom: var(--safe-bottom); }
+#tabbar .tab { min-height: 54px; padding: 0; justify-content: center; font-size: 12px; font-weight: 500; letter-spacing: .04em; }
+#tabbar .tab.is-active { color: var(--accent); font-weight: 700; }
+#tabbar .tab--main { color: var(--accent); font-weight: 700; }
+#tabbar .tab--main .ti { width: auto; height: auto; margin: 0; border-radius: 0; background: none; box-shadow: none; font-size: 16px; display: inline; color: var(--accent); }
+
+.scoreboard .team-panel--a, .scoreboard .team-panel--b { background: var(--bg); }
+.scoreboard .team-panel--b { border-left: 1px solid var(--border); box-shadow: none; }
+.team-name { font-weight: 600; font-size: .8em; letter-spacing: .14em; color: var(--text-dim); }
+.team-meta .lbl { letter-spacing: .14em; opacity: .7; }
+.team-panel--a .team-point, .team-panel--b .team-point { text-shadow: none; }
+
+#view-history .hm-card { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; padding: 14px 2px; margin-bottom: 0; }
+#view-history .hm-card::before { display: none; }
+#view-history .hm-dot { width: 3px; }
+#view-history .hm-name { font: 600 16px var(--display); text-transform: none; letter-spacing: 0; }
+#view-history .hm-set { font-family: var(--display); }
+#view-history .hist-strip { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
