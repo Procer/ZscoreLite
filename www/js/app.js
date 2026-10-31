@@ -154,6 +154,12 @@ function renderSummary(record) {
 
   const sets = record.finalState?.completedSets || [];
   document.getElementById('summary-score').textContent = sets.map((s) => `${s.gamesA}-${s.gamesB}`).join('  ') || '—';
+  // Tablero: una fila por pareja, una columna por set; el set ganado va resaltado.
+  const boardRow = (key) => `<div class="sb-row sb-row--${key.toLowerCase()}${winnerKey && winnerKey !== key ? ' is-loser' : ''}">
+      <span class="sb-name">${escapeHtml(record.teamNames[key])}${winnerKey === key ? ' 🏆' : ''}</span>
+      ${sets.map((st) => { const a = key === 'A' ? st.gamesA : st.gamesB; const b = key === 'A' ? st.gamesB : st.gamesA; return `<span class="sb-set${a > b ? ' is-won' : ''}">${a}</span>`; }).join('')}
+    </div>`;
+  document.getElementById('summary-board').innerHTML = sets.length ? boardRow('A') + boardRow('B') : '';
 
   const durationMin = record.endedAt && record.startedAt
     ? Math.max(1, Math.round((record.endedAt - record.startedAt) / 60000))

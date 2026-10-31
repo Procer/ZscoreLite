@@ -101,7 +101,7 @@ final class NeuralVoices {
             try {
                 boolean needShared = !new File(root, SHARED_PACK + "/phontab").isFile();
                 // La parte compartida (diccionarios) pesa poco y cuenta como el primer 20%.
-                if (needShared) fetchPack(SHARED_PACK, root, id, 0, 20);
+                if (needShared) fetchPack(SHARED_PACK, new File(root, SHARED_PACK), id, 0, 20);
                 fetchPack(id, new File(root, id), id, needShared ? 20 : 0, 100);
                 listener.onProgress(id, "listo", 100);
             } catch (Exception e) {
