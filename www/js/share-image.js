@@ -3,8 +3,8 @@
 
 const W = 1080;
 const H = 1440;
-const GREEN = '#7dbf5c';
-const RED = '#ff3b3b';
+const GREEN = '#f6b73c';
+const RED = '#e9658f';
 const FONT = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 function loadImage(src) {
@@ -56,13 +56,13 @@ export async function renderMatchImage(record, stats) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
   const glowA = ctx.createRadialGradient(140, 330, 0, 140, 330, 560);
-  glowA.addColorStop(0, 'rgba(125,191,92,0.16)');
-  glowA.addColorStop(1, 'rgba(125,191,92,0)');
+  glowA.addColorStop(0, 'rgba(246,183,60,0.16)');
+  glowA.addColorStop(1, 'rgba(246,183,60,0)');
   ctx.fillStyle = glowA;
   ctx.fillRect(0, 0, W, H);
   const glowB = ctx.createRadialGradient(940, 620, 0, 940, 620, 560);
-  glowB.addColorStop(0, 'rgba(255,59,59,0.16)');
-  glowB.addColorStop(1, 'rgba(255,59,59,0)');
+  glowB.addColorStop(0, 'rgba(233,101,143,0.16)');
+  glowB.addColorStop(1, 'rgba(233,101,143,0)');
   ctx.fillStyle = glowB;
   ctx.fillRect(0, 0, W, H);
 
@@ -77,14 +77,14 @@ export async function renderMatchImage(record, stats) {
   }
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#f5f7fa';
+  ctx.fillStyle = '#f3eee3';
   ctx.font = `800 44px ${FONT}`;
   ctx.fillText('Z-Score ', 176, 116);
   const zw = ctx.measureText('Z-Score ').width;
   ctx.fillStyle = GREEN;
   ctx.fillText('Lite', 176 + zw, 116);
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#9aa4b2';
+  ctx.fillStyle = '#a49b86';
   ctx.font = `600 30px ${FONT}`;
   ctx.fillText(formatDate(record.startedAt), W - 60, 116);
 
@@ -101,7 +101,7 @@ export async function renderMatchImage(record, stats) {
   roundRect(ctx, left, top, right - left, rowH * 2 + 70, 36);
   ctx.fillStyle = 'rgba(21,26,34,0.92)';
   ctx.fill();
-  ctx.strokeStyle = '#262e3b';
+  ctx.strokeStyle = '#3d382c';
   ctx.lineWidth = 2;
   ctx.stroke();
 
@@ -127,7 +127,7 @@ export async function renderMatchImage(record, stats) {
     ctx.fill();
 
     ctx.textAlign = 'left';
-    ctx.fillStyle = dim ? '#8b95a3' : '#f5f7fa';
+    ctx.fillStyle = dim ? '#a49b86' : '#f3eee3';
     const nameMax = right - left - 80 - colsW - 60;
     fitText(ctx, String(record.teamNames[side]).toUpperCase(), left + 64, y + rowH / 2 + 14, nameMax, 52, 800);
 
@@ -142,7 +142,7 @@ export async function renderMatchImage(record, stats) {
       const cx = right - 30 - colsW + i * colW + colW / 2;
       const mine = side === 'A' ? s.gamesA : s.gamesB;
       const theirs = side === 'A' ? s.gamesB : s.gamesA;
-      ctx.fillStyle = mine > theirs ? color : '#8b95a3';
+      ctx.fillStyle = mine > theirs ? color : '#a49b86';
       ctx.font = `800 ${mine > theirs ? 96 : 84}px ${FONT}`;
       ctx.fillText(String(mine), cx, y + rowH / 2 + 34);
     });
@@ -150,7 +150,7 @@ export async function renderMatchImage(record, stats) {
   });
 
   // Divisor entre filas
-  ctx.strokeStyle = '#262e3b';
+  ctx.strokeStyle = '#3d382c';
   ctx.beginPath();
   ctx.moveTo(left + 26, top + 70 + rowH);
   ctx.lineTo(right - 26, top + 70 + rowH);
@@ -184,7 +184,7 @@ export async function renderMatchImage(record, stats) {
       ctx.fillStyle = '#c3cad4';
       ctx.font = `600 30px ${FONT}`;
       ctx.fillText(label, W / 2, y - 6);
-      ctx.strokeStyle = '#1c2330';
+      ctx.strokeStyle = '#38332a';
       ctx.beginPath();
       ctx.moveTo(left, y + 28);
       ctx.lineTo(right, y + 28);
@@ -198,7 +198,7 @@ export async function renderMatchImage(record, stats) {
   const meta = [record.club, record.court, durationMin ? `${durationMin} min` : null].filter(Boolean).join('  ·  ');
   ctx.textAlign = 'center';
   if (meta) {
-    ctx.fillStyle = '#9aa4b2';
+    ctx.fillStyle = '#a49b86';
     ctx.font = `600 30px ${FONT}`;
     ctx.fillText(meta, W / 2, H - 120);
   }
@@ -277,8 +277,8 @@ export async function renderRankingImage(kindLabel, items, periodLabel) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, height);
   const glow = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, 700);
-  glow.addColorStop(0, 'rgba(125,191,92,0.16)');
-  glow.addColorStop(1, 'rgba(125,191,92,0)');
+  glow.addColorStop(0, 'rgba(246,183,60,0.16)');
+  glow.addColorStop(1, 'rgba(246,183,60,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, height);
 
@@ -291,17 +291,17 @@ export async function renderRankingImage(kindLabel, items, periodLabel) {
     ctx.restore();
   }
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#f5f7fa';
+  ctx.fillStyle = '#f3eee3';
   ctx.font = `800 44px ${FONT}`;
   ctx.fillText('Z-Score ', 176, 116);
   const zw = ctx.measureText('Z-Score ').width;
   ctx.fillStyle = GREEN;
   ctx.fillText('Lite', 176 + zw, 116);
 
-  ctx.fillStyle = '#f5f7fa';
+  ctx.fillStyle = '#f3eee3';
   ctx.font = `900 70px ${FONT}`;
   ctx.fillText('RANKING ' + kindLabel.toUpperCase(), 60, 240);
-  ctx.fillStyle = '#9aa4b2';
+  ctx.fillStyle = '#a49b86';
   ctx.font = `600 32px ${FONT}`;
   ctx.fillText(periodLabel, 60, 285);
 
@@ -310,37 +310,37 @@ export async function renderRankingImage(kindLabel, items, periodLabel) {
   top.forEach((e, i) => {
     const y = headH + i * rowH;
     roundRect(ctx, 50, y, W - 100, rowH - 14, 24);
-    ctx.fillStyle = i === 0 ? 'rgba(255,200,60,0.10)' : 'rgba(21,26,34,0.92)';
+    ctx.fillStyle = i === 0 ? 'rgba(246,183,60,0.10)' : 'rgba(21,26,34,0.92)';
     ctx.fill();
-    ctx.strokeStyle = i === 0 ? 'rgba(255,200,60,0.5)' : '#262e3b';
+    ctx.strokeStyle = i === 0 ? 'rgba(246,183,60,0.5)' : '#3d382c';
     ctx.lineWidth = 2;
     ctx.stroke();
 
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#9aa4b2';
+    ctx.fillStyle = '#a49b86';
     ctx.font = `800 44px ${FONT}`;
     ctx.fillText(i < 3 ? medals[i] : '#' + (i + 1), 118, y + 66);
 
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#f5f7fa';
+    ctx.fillStyle = '#f3eee3';
     fitText(ctx, e.name.toUpperCase(), 180, y + 50, 600, 40, 800);
-    ctx.fillStyle = '#9aa4b2';
+    ctx.fillStyle = '#a49b86';
     ctx.font = `600 26px ${FONT}`;
     ctx.fillText(`${e.played} PJ · ${e.won} G · ${e.lost} P · ${e.winPct}%`, 180, y + 84);
 
     // barra de puntos
     roundRect(ctx, 180, y + 88, 600, 5, 3);
-    ctx.fillStyle = '#0b0e13';
+    ctx.fillStyle = '#2a1f08';
     ctx.fill();
     roundRect(ctx, 180, y + 88, Math.max(8, 600 * (e.points / max)), 5, 3);
     ctx.fillStyle = GREEN;
     ctx.fill();
 
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#f5f7fa';
+    ctx.fillStyle = '#f3eee3';
     ctx.font = `900 56px ${FONT}`;
     ctx.fillText(String(e.points), W - 130, y + 62);
-    ctx.fillStyle = '#9aa4b2';
+    ctx.fillStyle = '#a49b86';
     ctx.font = `700 22px ${FONT}`;
     ctx.fillText('PTS', W - 130, y + 88);
   });

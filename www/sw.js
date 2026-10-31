@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zscore-lite-v39';
+const CACHE_NAME = 'zscore-lite-v40';
 const CORE_ASSETS = [
   './',
   './index.html',
