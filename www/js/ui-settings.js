@@ -115,33 +115,11 @@ export function initSettings({ onDataChanged }) {
       </div>`;
   }
 
-  // Cada "section-title" pasa a ser un grupo plegable con icono: la pantalla deja de ser una lista larga.
-  const GROUP_ICONS = { 'Voz del anuncio': '🎙️', 'Control remoto': '🎮', Pantalla: '🖥️', 'Partido en vivo': '📡', Licencia: '🔑', Jugadores: '👥', Datos: '💾' };
-  const openGroups = new Set(['Voz del anuncio']);
-  function groupify(html) {
-    const parts = html.split(/<div class="section-title">([^<]*)<\/div>/);
-    let out = parts[0];
-    for (let i = 1; i < parts.length; i += 2) {
-      const title = parts[i];
-      out += `<details class="set-group" data-group="${title}"${openGroups.has(title) ? ' open' : ''}>
-        <summary><span class="sg-ico">${GROUP_ICONS[title] || '•'}</span><span class="sg-title">${title}</span><span class="sg-chev">›</span></summary>
-        <div class="sg-body">${parts[i + 1]}</div></details>`;
-    }
-    return out;
-  }
-  body.addEventListener('toggle', (e) => {
-    const g = e.target.closest?.('.set-group');
-    if (!g) return;
-    if (g.open) openGroups.add(g.dataset.group); else openGroups.delete(g.dataset.group);
-  }, true);
-
   async function render() {
     const s = getSettings();
     const total = (await listMatches()).length;
     const players = (await listPlayerNames()).sort((a, b) => a.localeCompare(b, 'es'));
-    body.innerHTML = groupify(`
-      ${voiceCard(s)}
-
+    body.innerHTML = `
       <div class="section-title">Control remoto</div>
       <div class="set-card">
         <div class="set-row">
@@ -163,6 +141,8 @@ export function initSettings({ onDataChanged }) {
       ${toggle('beep', 'Sonido al tocar', 'Un pitido corto por cada toque del control', s.beep)}
       ${toggle('vibrate', 'Vibración al tocar', 'Confirma cada toque sin mirar la pantalla', s.vibrate)}
       <button class="btn btn-ghost btn-block" id="test-feedback">Probar sonido y vibración</button>
+
+      ${voiceCard(s)}
 
       <div class="section-title">Pantalla</div>
       ${toggle('highContrast', 'Alto contraste', 'Fondo negro puro y colores más fuertes, para sol directo', s.highContrast)}
@@ -200,7 +180,7 @@ export function initSettings({ onDataChanged }) {
         <button class="btn btn-primary btn-block" id="backup-export">Exportar copia</button>
         <button class="btn btn-ghost btn-block" id="backup-import" style="margin-top:10px;">Importar copia</button>
       </div>
-    `);
+    `;
   }
 
   // El APK avisa el avance de cada descarga de voz.
@@ -212,6 +192,8 @@ export function initSettings({ onDataChanged }) {
       if (btn) { btn.disabled = false; btn.textContent = 'Reintentar'; }
       if (sub) sub.textContent = 'No se pudo bajar. Revisá tu conexión.';
     }
+    if (state.startsWith('fallo')) { alert(`No se pudo reproducir la voz.
+${state}`); return; }
     if (state === 'listo') {
       saveSettings({ neuralVoice: id });
       render().then(() => speak('Quince a treinta. Juego, Argentina.'));

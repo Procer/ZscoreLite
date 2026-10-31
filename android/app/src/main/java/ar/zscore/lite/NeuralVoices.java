@@ -214,6 +214,7 @@ final class NeuralVoices {
                 play(pcm, rate, mine);
             } catch (Throwable t) {
                 Log.e(TAG, "speak fallo", t);
+                listener.onProgress(id, "fallo: " + t, 0);
             }
         });
         return true;
