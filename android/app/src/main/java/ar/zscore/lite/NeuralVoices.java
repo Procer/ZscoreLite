@@ -35,13 +35,13 @@ final class NeuralVoices {
     private static final String BASE_URL = "https://lite.zscore.ar/voces/";
     private static final String SHARED_PACK = "espeak-ng-data";
 
-    /** id, nombre, genero, pais, MB aproximados de descarga, voz base, tono (1 = el de la voz; menos = mas grave). */
+    /** id, nombre, genero, pais, MB aproximados de descarga, voz base, tono (1 = el de la voz; menos = mas grave), ritmo (1 = normal; mas = mas rapido). */
     private static final String[][] CATALOG = {
-        { "daniela", "Daniela", "femenina", "Argentina", "37", "daniela", "1" },
-        { "claude", "Claudia", "femenina", "México", "23", "claude", "1" },
-        { "ald", "Alberto", "masculina", "México", "23", "ald", "1" },
+        { "daniela", "Daniela", "femenina", "Argentina", "37", "daniela", "1", "1.05" },
+        { "claude", "Claudia", "femenina", "México", "23", "claude", "1", "1.05" },
+        { "ald", "Alberto", "masculina", "México", "23", "ald", "1", "1.3" },
         // Misma voz de Alberto con el tono mas grave: suena como otro hombre y no pesa nada mas.
-        { "martin", "Martín", "masculina", "México", "23", "ald", "0.86" },
+        { "martin", "Martín", "masculina", "México", "23", "ald", "0.86", "1.3" },
     };
 
     interface Listener {
@@ -204,14 +204,15 @@ final class NeuralVoices {
                 short[] pcm;
                 int rate;
                 float pitch = Float.parseFloat(entry(id)[6]);
+                float tempo = Float.parseFloat(entry(id)[7]);
                 synchronized (this) {
                     OfflineTts tts = engineFor(baseOf(id));
                     // Tono mas grave: se genera mas rapido y se reproduce mas lento, y la duracion queda igual.
                     rate = Math.round(tts.sampleRate() * pitch);
-                    String key = id + "|" + speed + "|" + text;
+                    String key = id + "|" + speed + "|" + tempo + "|" + text;
                     pcm = cache.get(key);
                     if (pcm == null) {
-                        GeneratedAudio a = tts.generate(text, 0, speed / pitch);
+                        GeneratedAudio a = tts.generate(text, 0, speed * tempo / pitch);
                         float[] f = a.getSamples();
                         pcm = new short[f.length];
                         for (int i = 0; i < f.length; i++) {

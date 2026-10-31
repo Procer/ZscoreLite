@@ -27,6 +27,9 @@ function showView(name) {
   views.forEach((v) => {
     document.getElementById(`view-${v}`).classList.toggle('is-active', v === name);
   });
+  // La barra inferior solo aparece en las pantallas de menú (CSS por data-view).
+  document.body.dataset.view = name;
+  document.querySelectorAll('#tabbar .tab[data-tab]').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === name));
   // El marcador va horizontal (landscape); el resto de la app, vertical.
   const lock = name === 'scoreboard' || name === 'social' ? 'landscape' : 'portrait';
 
