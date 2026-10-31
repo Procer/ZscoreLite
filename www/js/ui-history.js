@@ -149,17 +149,27 @@ export function initHistory() {
       list.innerHTML = '<div class="empty-state">Todavía no hay partidos guardados.<br/>Jugá uno para verlo acá.</div>';
       return;
     }
-    list.innerHTML = cache.map((m, i) => {
+    const done = cache.filter((m) => m.finalState?.winner);
+    const pairs = new Set();
+    cache.forEach((m) => ['A', 'B'].forEach((k) => m.teamNames?.[k] && pairs.add(m.teamNames[k])));
+    const mins = done.map((m) => (m.startedAt && m.endedAt ? (m.endedAt - m.startedAt) / 60000 : 0)).filter(Boolean);
+    const avg = mins.length ? Math.round(mins.reduce((a, b) => a + b, 0) / mins.length) : null;
+    const strip = `<div class="hist-strip">
+      <div><b>${cache.length}</b><small>${cache.length === 1 ? 'partido' : 'partidos'}</small></div>
+      <div><b>${pairs.size}</b><small>parejas</small></div>
+      <div><b>${avg ? `${avg} min` : '—'}</b><small>promedio</small></div>
+    </div>`;
+    list.innerHTML = strip + cache.map((m, i) => {
       const badge = m.inProgress
         ? '<span class="hm-badge hm-badge--live">En curso</span>'
         : m.finalState?.winner ? '' : '<span class="hm-badge">Cortado</span>';
-      const place = [m.club, m.court].filter(Boolean).map(escapeHtml).join(' · ');
+      const place = [m.club].filter(Boolean).map(escapeHtml).join(' · ');
       const duration = formatDuration(m.startedAt, m.endedAt);
       return `
         <button class="hm-card" data-index="${i}">
           <div class="hm-head">
             <span>${formatDate(m.startedAt)}</span>
-            ${badge}
+            ${badge || (m.court ? `<span class="hm-badge">${escapeHtml(m.court)}</span>` : '')}
           </div>
           ${scoreTable(m, false)}
           ${(place || duration) ? `<div class="hm-foot">${[place, duration].filter(Boolean).join(' · ')}</div>` : ''}

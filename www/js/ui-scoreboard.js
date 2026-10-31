@@ -10,7 +10,7 @@ function formatClock(ms) {
   return `${m}:${s}`;
 }
 
-const TEAM_COLOR = { A: '#8ce23a', B: '#ff3b3b' };
+const TEAM_COLOR = { A: '#7dbf5c', B: '#ff3b3b' };
 
 // Cuánto se muestra el cartel de "GANÓ" antes de volver a los tantos (y soltar
 // las chispas), y cuánto más se espera antes de pasar al resumen del partido.

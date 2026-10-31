@@ -3,7 +3,7 @@
 
 const W = 1080;
 const H = 1440;
-const GREEN = '#8ce23a';
+const GREEN = '#7dbf5c';
 const RED = '#ff3b3b';
 const FONT = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
@@ -56,8 +56,8 @@ export async function renderMatchImage(record, stats) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
   const glowA = ctx.createRadialGradient(140, 330, 0, 140, 330, 560);
-  glowA.addColorStop(0, 'rgba(140,226,58,0.16)');
-  glowA.addColorStop(1, 'rgba(140,226,58,0)');
+  glowA.addColorStop(0, 'rgba(125,191,92,0.16)');
+  glowA.addColorStop(1, 'rgba(125,191,92,0)');
   ctx.fillStyle = glowA;
   ctx.fillRect(0, 0, W, H);
   const glowB = ctx.createRadialGradient(940, 620, 0, 940, 620, 560);
@@ -277,8 +277,8 @@ export async function renderRankingImage(kindLabel, items, periodLabel) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, height);
   const glow = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, 700);
-  glow.addColorStop(0, 'rgba(140,226,58,0.16)');
-  glow.addColorStop(1, 'rgba(140,226,58,0)');
+  glow.addColorStop(0, 'rgba(125,191,92,0.16)');
+  glow.addColorStop(1, 'rgba(125,191,92,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, height);
 

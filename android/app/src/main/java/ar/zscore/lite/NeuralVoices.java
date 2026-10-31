@@ -35,11 +35,13 @@ final class NeuralVoices {
     private static final String BASE_URL = "https://lite.zscore.ar/voces/";
     private static final String SHARED_PACK = "espeak-ng-data";
 
-    /** id, nombre, genero, pais, MB aproximados de descarga. */
+    /** id, nombre, genero, pais, MB aproximados de descarga, voz base, tono (1 = el de la voz; menos = mas grave). */
     private static final String[][] CATALOG = {
-        { "daniela", "Daniela", "femenina", "Argentina", "37" },
-        { "claude", "Claudia", "femenina", "México", "23" },
-        { "ald", "Alberto", "masculina", "México", "23" },
+        { "daniela", "Daniela", "femenina", "Argentina", "37", "daniela", "1" },
+        { "claude", "Claudia", "femenina", "México", "23", "claude", "1" },
+        { "ald", "Alberto", "masculina", "México", "23", "ald", "1" },
+        // Misma voz de Alberto con el tono mas grave: suena como otro hombre y no pesa nada mas.
+        { "martin", "Martín", "masculina", "México", "23", "ald", "0.86" },
     };
 
     interface Listener {
@@ -67,14 +69,19 @@ final class NeuralVoices {
         this.root = new File(ctx.getFilesDir(), "voces");
     }
 
-    private static boolean known(String id) {
-        for (String[] c : CATALOG) if (c[0].equals(id)) return true;
-        return false;
+    private static String[] entry(String id) {
+        for (String[] c : CATALOG) if (c[0].equals(id)) return c;
+        return null;
     }
+
+    private static boolean known(String id) { return entry(id) != null; }
+
+    /** Carpeta del modelo que usa esta voz (Martin comparte el de Alberto). */
+    private static String baseOf(String id) { return entry(id)[5]; }
 
     boolean isInstalled(String id) {
         if (!known(id)) return false;
-        File d = new File(root, id);
+        File d = new File(root, baseOf(id));
         return new File(d, "model.onnx").isFile() && new File(d, "tokens.txt").isFile()
             && new File(root, SHARED_PACK + "/phontab").isFile();
     }
@@ -102,7 +109,8 @@ final class NeuralVoices {
                 boolean needShared = !new File(root, SHARED_PACK + "/phontab").isFile();
                 // La parte compartida (diccionarios) pesa poco y cuenta como el primer 20%.
                 if (needShared) fetchPack(SHARED_PACK, new File(root, SHARED_PACK), id, 0, 20);
-                fetchPack(id, new File(root, id), id, needShared ? 20 : 0, 100);
+                String base = baseOf(id);
+                if (!new File(root, base + "/model.onnx").isFile()) fetchPack(base, new File(root, base), id, needShared ? 20 : 0, 100);
                 listener.onProgress(id, "listo", 100);
             } catch (Exception e) {
                 Log.e(TAG, "descarga fallo: " + id, e);
@@ -177,8 +185,9 @@ final class NeuralVoices {
 
     boolean delete(String id) {
         if (!known(id)) return false;
-        deleteTree(new File(root, id));
-        synchronized (this) { if (id.equals(engineId)) releaseEngine(); }
+        String base = baseOf(id);
+        deleteTree(new File(root, base));
+        synchronized (this) { if (base.equals(engineId)) releaseEngine(); }
         return true;
     }
 
@@ -194,13 +203,15 @@ final class NeuralVoices {
             try {
                 short[] pcm;
                 int rate;
+                float pitch = Float.parseFloat(entry(id)[6]);
                 synchronized (this) {
-                    OfflineTts tts = engineFor(id);
-                    rate = tts.sampleRate();
+                    OfflineTts tts = engineFor(baseOf(id));
+                    // Tono mas grave: se genera mas rapido y se reproduce mas lento, y la duracion queda igual.
+                    rate = Math.round(tts.sampleRate() * pitch);
                     String key = id + "|" + speed + "|" + text;
                     pcm = cache.get(key);
                     if (pcm == null) {
-                        GeneratedAudio a = tts.generate(text, 0, speed);
+                        GeneratedAudio a = tts.generate(text, 0, speed / pitch);
                         float[] f = a.getSamples();
                         pcm = new short[f.length];
                         for (int i = 0; i < f.length; i++) {

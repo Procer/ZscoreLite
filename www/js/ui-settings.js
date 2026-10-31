@@ -95,7 +95,7 @@ export function initSettings({ onDataChanged }) {
       return `
       <div class="voice-row${active ? ' is-active' : ''}${v.installed ? '' : ' is-pending'}" data-neural="${v.id}">
         <div class="voice-avatar">${v.gender === 'femenina' ? '♀' : '♂'}</div>
-        <div class="voice-info"><div class="voice-name">${escapeAttr(v.name)}</div><div class="voice-sub" data-sub="${v.id}">${v.country} · ${v.gender}</div></div>
+        <div class="voice-info"><div class="voice-name">${escapeAttr(v.name)}</div><div class="voice-sub" data-sub="${v.id}">${v.country}${v.id === 'martin' ? ' · grave' : ''}</div></div>
         ${state}
       </div>`;
     };
@@ -109,7 +109,7 @@ export function initSettings({ onDataChanged }) {
       <div class="section-title">Voz del anuncio</div>
       <div class="set-card voice-card">
         <div class="match-card-meta" style="margin-bottom:10px;">Voces latinas propias de la app: suenan igual en cualquier celular y funcionan sin internet. Bajá la que quieras una sola vez y tocala para elegirla.</div>
-        ${voices.map(row).join('')}
+        <div class="voice-grid">${voices.map(row).join('')}</div>
         ${system}
         <div class="match-card-meta" style="margin-top:10px;">Voces: Piper (licencias Unlicense, Apache 2.0 y CC BY-SA 4.0; la de Daniela es del corpus OpenSLR 61).</div>
       </div>`;
