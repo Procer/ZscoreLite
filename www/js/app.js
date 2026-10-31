@@ -190,6 +190,13 @@ async function refreshLastMatchButton() {
   const last = await getLastFinishedMatch();
   const btn = document.getElementById('btn-last-match');
   btn.style.display = last ? '' : 'none';
+  const sub = btn.querySelector('small');
+  if (sub && last) {
+    const fs = last.finalState;
+    const sets = (fs.completedSets || []).map((s) => `${s.gamesA}-${s.gamesB}`).join('  ');
+    const who = fs.winner ? `Ganó ${last.teamNames[fs.winner]}` : 'Sin terminar';
+    sub.textContent = [who, sets].filter(Boolean).join(' · ');
+  }
 }
 
 document.addEventListener('click', (e) => {
