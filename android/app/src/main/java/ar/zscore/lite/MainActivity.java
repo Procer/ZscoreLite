@@ -47,12 +47,19 @@ public class MainActivity extends BridgeActivity {
     private static final String TAG = "ZScoreRemote";
     private TextToSpeech tts;
     private volatile boolean ttsReady = false;
+    private NeuralVoices neural;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         hideSystemBars();
         initTts();
+        neural = new NeuralVoices(getApplicationContext(), (id, state, percent) -> runOnUiThread(() -> {
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().evaluateJavascript(
+                    "window.__zsVoice&&window.__zsVoice(" + JSONObject.quote(id) + "," + JSONObject.quote(state) + "," + percent + ")", null);
+            }
+        }));
         // Reintento tras el primer dibujado: en algunos equipos el primer
         // hide() se pierde porque la ventana todavía no está lista.
         getWindow().getDecorView().postDelayed(this::hideSystemBars, 400);
@@ -87,6 +94,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        if (neural != null) neural.shutdown();
         if (tts != null) {
             tts.stop();
             tts.shutdown();
@@ -234,6 +242,21 @@ public class MainActivity extends BridgeActivity {
                 return false;
             }
         }
+
+        /** Voces propias de la app: [{id,name,gender,country,mb,installed}]. */
+        @JavascriptInterface
+        public String neuralVoices() { return neural == null ? "[]" : neural.listJson(); }
+
+        /** Empieza a bajar una voz; el avance llega a window.__zsVoice(id, estado, porcentaje). */
+        @JavascriptInterface
+        public boolean neuralDownload(String id) { return neural != null && neural.download(id); }
+
+        @JavascriptInterface
+        public boolean neuralDelete(String id) { return neural != null && neural.delete(id); }
+
+        /** Dice el texto con una voz propia. false si esa voz todavia no esta bajada. */
+        @JavascriptInterface
+        public boolean neuralSpeak(String id, String text) { return neural != null && neural.speak(id, text, 1.0f); }
 
         /** Voces en español instaladas, como JSON: [{"name":"...","lang":"es-AR"}]. */
         @JavascriptInterface

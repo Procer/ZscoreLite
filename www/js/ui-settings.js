@@ -2,7 +2,7 @@ import { getSettings, saveSettings, feedbackTap, BALL_SIZES } from './settings.j
 import { getLicense, describeLicense, renew, LICENSE_REQUIRED } from './license.js';
 import { exportBackup, importBackup, listMatches, listPlayerNames, savePlayerName, deletePlayerName, renamePlayer } from './db.js';
 
-import { listVoices, speak } from './tts.js';
+import { listVoices, neuralVoices, downloadNeural, speak } from './tts.js';
 
 function escapeAttr(t) {
   return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -53,7 +53,7 @@ export function initSettings({ onDataChanged }) {
       </div>`;
   }
 
-  function voiceCard(s) {
+  function legacyVoiceCard(s) {
     const voices = listVoices();
     const canInstall = !!window.ZScoreNative?.openVoiceInstall;
     if (voices.length < 2 && !canInstall) return '';
@@ -81,6 +81,37 @@ export function initSettings({ onDataChanged }) {
         ${canInstall ? `<button class="btn btn-ghost btn-block" id="voice-install" style="margin-top:12px;">⬇ Descargar más voces</button>
         ${window.ZScoreNative.openTtsSettings ? '<button class="btn btn-ghost btn-block" id="voice-settings" style="margin-top:8px;">⚙ Ajustes de voz de Android</button>' : ''}
         <div class="match-card-meta" style="margin-top:8px;">Si no ves la voz que buscás, descargala o cambiá el motor de voz en Android y volvé a abrir Ajustes para ver las nuevas.</div>` : ''}
+      </div>`;
+  }
+
+  function voiceCard(s) {
+    const voices = neuralVoices();
+    if (!voices.length) return legacyVoiceCard(s); // APK anterior, sin voces propias
+    const row = (v) => {
+      const active = s.neuralVoice === v.id;
+      const state = v.installed
+        ? '<div class="voice-check">✓</div>'
+        : `<button class="btn btn-ghost voice-get" data-get="${v.id}">Bajar · ${v.mb} MB</button>`;
+      return `
+      <div class="voice-row${active ? ' is-active' : ''}${v.installed ? '' : ' is-pending'}" data-neural="${v.id}">
+        <div class="voice-avatar">${v.gender === 'femenina' ? '♀' : '♂'}</div>
+        <div class="voice-info"><div class="voice-name">${escapeAttr(v.name)}</div><div class="voice-sub" data-sub="${v.id}">${v.country} · ${v.gender}</div></div>
+        ${state}
+      </div>`;
+    };
+    const system = `
+      <div class="voice-row${!s.neuralVoice ? ' is-active' : ''}" data-neural="">
+        <div class="voice-avatar">📱</div>
+        <div class="voice-info"><div class="voice-name">Voz del celular</div><div class="voice-sub">Cambia según el equipo</div></div>
+        <div class="voice-check">✓</div>
+      </div>`;
+    return `
+      <div class="section-title">Voz del anuncio</div>
+      <div class="set-card voice-card">
+        <div class="match-card-meta" style="margin-bottom:10px;">Voces latinas propias de la app: suenan igual en cualquier celular y funcionan sin internet. Bajá la que quieras una sola vez y tocala para elegirla.</div>
+        ${voices.map(row).join('')}
+        ${system}
+        <div class="match-card-meta" style="margin-top:10px;">Voces: Piper (licencias Unlicense, Apache 2.0 y CC BY-SA 4.0; la de Daniela es del corpus OpenSLR 61).</div>
       </div>`;
   }
 
@@ -152,6 +183,21 @@ export function initSettings({ onDataChanged }) {
     `;
   }
 
+  // El APK avisa el avance de cada descarga de voz.
+  window.__zsVoice = (id, state, percent) => {
+    const sub = body.querySelector(`[data-sub="${id}"]`);
+    const btn = body.querySelector(`[data-get="${id}"]`);
+    if (state === 'descargando' && btn) btn.textContent = `Bajando… ${percent}%`;
+    if (state === 'error') {
+      if (btn) { btn.disabled = false; btn.textContent = 'Reintentar'; }
+      if (sub) sub.textContent = 'No se pudo bajar. Revisá tu conexión.';
+    }
+    if (state === 'listo') {
+      saveSettings({ neuralVoice: id });
+      render().then(() => speak('Quince a treinta. Juego, Argentina.'));
+    }
+  };
+
   body.addEventListener('input', (e) => {
     if (e.target.id === 'tap-window') {
       const ms = Number(e.target.value);
@@ -187,9 +233,24 @@ export function initSettings({ onDataChanged }) {
       if (!window.ZScoreNative.openTtsSettings()) alert('Abrí Ajustes de Android → Salida de texto a voz.');
       return;
     }
+    const legacyRow = e.target.closest('.voice-row[data-voice]');
+    if (legacyRow) {
+      saveSettings({ voiceName: legacyRow.dataset.voice });
+      body.querySelectorAll('.voice-row').forEach((r) => r.classList.toggle('is-active', r === legacyRow));
+      speak('Quince a treinta. Juego, Argentina.');
+      return;
+    }
+    const getBtn = e.target.closest('[data-get]');
+    if (getBtn) {
+      const id = getBtn.dataset.get;
+      getBtn.disabled = true;
+      getBtn.textContent = 'Bajando… 0%';
+      if (!downloadNeural(id)) { getBtn.disabled = false; getBtn.textContent = 'Reintentar'; }
+      return;
+    }
     const voiceRow = e.target.closest('.voice-row');
-    if (voiceRow) {
-      saveSettings({ voiceName: voiceRow.dataset.voice });
+    if (voiceRow && !voiceRow.classList.contains('is-pending')) {
+      saveSettings({ neuralVoice: voiceRow.dataset.neural });
       body.querySelectorAll('.voice-row').forEach((r) => r.classList.toggle('is-active', r === voiceRow));
       speak('Quince a treinta. Juego, Argentina.');
       return;

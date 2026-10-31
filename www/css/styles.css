@@ -1619,3 +1619,6 @@ input:focus, select:focus {
 @media (prefers-reduced-motion: reduce) {
   .home-actions .btn, .wizard-step { animation: none; }
 }
+
+.voice-row.is-pending { opacity: .95; }
+.voice-get { flex: none; min-height: 40px; padding: 0 14px; font-size: 13px; font-weight: 800; }

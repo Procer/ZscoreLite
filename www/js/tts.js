@@ -80,8 +80,24 @@ if ('speechSynthesis' in window) {
   window.speechSynthesis.onvoiceschanged = () => ensureVoice();
 }
 
+/** Voces propias de la app (Android): [{ id, name, gender, country, mb, installed }]. [] fuera del APK. */
+export function neuralVoices() {
+  const native = window.ZScoreNative;
+  if (!native?.neuralVoices) return [];
+  try { return JSON.parse(native.neuralVoices()); } catch (e) { return []; }
+}
+
+export function downloadNeural(id) {
+  return !!window.ZScoreNative?.neuralDownload?.(id);
+}
+
 export function speak(text) {
   if (!text) return;
+  // Voz propia de la app: suena igual en cualquier celular y no necesita internet.
+  const own = getSettings().neuralVoice;
+  if (own && window.ZScoreNative?.neuralSpeak) {
+    try { if (window.ZScoreNative.neuralSpeak(own, text)) return; } catch (e) { /* cae a la voz del sistema */ }
+  }
   // En el APK se usa el motor de voz nativo de Android (el del WebView no suena en varios celulares).
   const native = window.ZScoreNative;
   if (native?.speak && native.speakReady?.()) {

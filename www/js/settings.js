@@ -16,7 +16,8 @@ export const DEFAULTS = {
   highContrast: false,
   ballSize: 'm',
   liveAuto: false, // transmitir en vivo cada partido apenas empieza
-  voiceName: '', // voz del anuncio; vacío = automática
+  voiceName: '', // voz del sistema (solo si no hay una voz propia elegida)
+  neuralVoice: '', // voz propia de la app (daniela | claude | ald); vacío = usar la del sistema
 };
 
 let cache = null;
