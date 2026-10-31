@@ -1811,3 +1811,16 @@ body[data-view="home"] #view-home, body[data-view="history"] .view.is-active, bo
 #view-history .hm-set, #view-history .hm-table--big .hm-set { font-family: var(--sans); }
 #view-history .setup-header { background: var(--bg); box-shadow: 0 0 0 16px var(--bg); backdrop-filter: none; }
 .hm-table--big .hm-trophy { display: none; }
+
+/* ===== Armado del partido y marca (2.7) ===== */
+.home-logo--big { border-radius: 28px; }
+.wizard-question { font: 600 clamp(30px, 9vw, 38px)/1.08 var(--display); letter-spacing: -.01em; text-wrap: balance; }
+.wizard-sub { font-size: 14.5px; line-height: 1.5; color: var(--text-dim); max-width: 46ch; }
+.wizard-progress-fill { background: var(--accent); box-shadow: none; }
+.option-card { border-radius: 20px; background: var(--bg-elevated); border: 1px solid var(--hair); box-shadow: none; padding: 18px 20px; }
+.option-card .option-title, .option-grid--wizard .option-card .option-title { font: 600 20px var(--display); letter-spacing: 0; }
+.option-card.is-selected { background: rgba(246, 183, 60, .08); border-color: var(--accent); box-shadow: none; }
+.option-card:active { transform: scale(.985); }
+.wizard-search { border-radius: 16px; background: var(--bg-elevated); border: 1px solid var(--hair); }
+.chip { border-radius: 999px; background: var(--bg-elevated); border-color: var(--hair); }
+.option-card .option-title, .wizard-question, .home-q { font-feature-settings: "lnum" 1; font-variant-numeric: lining-nums; }
