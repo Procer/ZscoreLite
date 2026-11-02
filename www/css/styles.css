@@ -1813,7 +1813,6 @@ body[data-view="home"] #view-home, body[data-view="history"] .view.is-active, bo
 .hm-table--big .hm-trophy { display: none; }
 
 /* ===== Armado del partido y marca (2.7) ===== */
-.home-logo--big { border-radius: 28px; }
 .wizard-question { font: 600 clamp(30px, 9vw, 38px)/1.08 var(--display); letter-spacing: -.01em; text-wrap: balance; }
 .wizard-sub { font-size: 14.5px; line-height: 1.5; color: var(--text-dim); max-width: 46ch; }
 .wizard-progress-fill { background: var(--accent); box-shadow: none; }
@@ -1824,3 +1823,26 @@ body[data-view="home"] #view-home, body[data-view="history"] .view.is-active, bo
 .wizard-search { border-radius: 16px; background: var(--bg-elevated); border: 1px solid var(--hair); }
 .chip { border-radius: 999px; background: var(--bg-elevated); border-color: var(--hair); }
 .option-card .option-title, .wizard-question, .home-q { font-feature-settings: "lnum" 1; font-variant-numeric: lining-nums; }
+
+/* ===== Inicio: una sola accion principal (la tarjeta "Nuevo partido") ===== */
+body[data-view="home"] #tabbar .tab--main { display: none; }
+
+/* ===== Inicio: se entiende que hace la app (subtitulo visible, etiqueta legible) ===== */
+.home-tag { font-size: 13px; }
+#view-home .home-card--main { align-items: center; }
+#view-home .home-card--main:not(#btn-last-match):not(#btn-social) small { display: block; margin-top: 2px; font-size: 13.5px; color: #4a3510; }
+input::placeholder { color: #a49b86; }
+
+/* ===== Inicio: boton principal legible al sol y a distancia ===== */
+#view-home .home-card--main { min-height: 68px; }
+#view-home .home-card--main b { font-size: 19px; letter-spacing: .005em; }
+#view-home .home-card--main .hc-go { font-size: 26px; }
+
+/* ===== PIN y licencia en horizontal bajo: el logo no se sale de la pantalla ===== */
+@media (orientation: landscape) and (max-height: 480px) {
+  #view-pin, #view-license { padding: 16px 32px; gap: 8px; justify-content: safe center; overflow-y: auto; }
+  #view-pin .home-logo--big, #view-license .home-logo--big { width: 72px; height: 72px; }
+  #view-license .license-input { margin-top: 6px; padding: 10px; }
+  #view-license .license-msg { margin-top: 4px; min-height: 16px; }
+  #view-pin .wizard-question, #view-license .wizard-question { font-size: 28px; }
+}
