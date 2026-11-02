@@ -1847,17 +1847,7 @@ input::placeholder { color: #a49b86; }
   #view-pin .wizard-question, #view-license .wizard-question { font-size: 28px; }
 }
 
-/* ===== Inicio en horizontal: titular a la izquierda, acciones a la derecha ===== */
-@media (orientation: landscape) and (max-height: 480px) {
-  #view-home.is-active {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr;
-    column-gap: clamp(28px, 6vw, 64px); row-gap: 8px; align-content: start;
-    width: 100%; max-width: 920px; margin-inline: auto;
-  }
-  #view-home .home-top, #view-home .license-banner { grid-column: 1 / -1; max-width: none; }
-  #view-home .home-q { grid-column: 1; grid-row: 3; align-self: center; margin: 0; max-width: none; font-size: clamp(40px, 7.4vw, 60px); }
-  #view-home .home-actions { grid-column: 2; grid-row: 3; align-self: center; justify-content: center; flex: none; max-width: none; padding-bottom: 0; }
-  #view-home .home-card--main { order: -1; margin-top: 0; min-height: 60px; padding-block: 12px; }
-  #view-home .home-card:not(.home-card--main) { min-height: 48px; padding-block: 9px; }
-  #view-home.is-active { padding-top: calc(10px + var(--safe-top)); }
-}
+/* ===== Inicio en vertical: el contenido se apoya abajo, al alcance del pulgar ===== */
+#view-home .home-q { margin-top: auto; margin-bottom: 18px; font-size: clamp(44px, 14vw, 60px); line-height: 1.02; }
+#view-home .home-actions { flex: none; padding-bottom: 0; }
+#view-home .home-card--main { margin-top: 4px; }
