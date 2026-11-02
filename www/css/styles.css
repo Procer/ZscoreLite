@@ -1868,3 +1868,22 @@ input::placeholder { color: #a49b86; }
 /* Las cifras de Fraunces son mas anchas: el limite de ancho baja para que dos cifras entren enteras en su mitad */
 .team-point { font-size: clamp(120px, min(92vh, 34vw), 700px); letter-spacing: -.045em; padding-left: 0; padding-right: 0; }
 .team-point.is-long { font-size: min(22vh, 8.5vw); }
+
+/* ===== UX 2.10: barra inferior con iconos y resumen centrado en el marcador ===== */
+#tabbar .tab:not(.tab--main) { flex-direction: column; gap: 3px; min-height: 56px; border-radius: 16px; font-size: 11.5px; letter-spacing: .02em; }
+#tabbar .tab .ti-ico { width: 24px; height: 24px; flex: none; opacity: .8; }
+#tabbar .tab.is-active .ti-ico { opacity: 1; }
+#tabbar .tab.is-active:not(.tab--main) { background: rgba(246, 183, 60, .14); }
+#tabbar .tab--main { min-height: 52px; padding: 0 22px; }
+
+.summary-hero { display: flex; flex-direction: column; align-items: stretch; padding: 20px 16px 22px; }
+.summary-hero .summary-trophy { order: 0; color: var(--accent); align-self: center; }
+.summary-hero .summary-kicker { order: 1; }
+.summary-hero .summary-board { order: 2; margin: 14px 0 18px; gap: 10px; }
+.summary-hero .summary-winner { order: 3; margin: 0; font-size: 22px; text-transform: none; font-weight: 600; letter-spacing: 0; text-shadow: none; }
+.summary-hero .sb-row { flex-wrap: wrap; row-gap: 0; padding: 12px 14px 10px; }
+.summary-hero .sb-name { flex: 1 0 100%; font-size: 14px; letter-spacing: .08em; color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
+.summary-hero .sb-set { font-family: var(--display); font-variation-settings: 'opsz' 9, 'SOFT' 100; font-size: clamp(56px, 20vw, 84px); line-height: 1; min-width: 0; flex: 1 1 0; text-align: center; font-weight: 800; }
+.summary-hero .sb-set:not(.is-won) { color: var(--text-dim); font-weight: 600; opacity: .75; }
+.sb-win { display: inline-block; width: 18px; height: 18px; background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 4h8v5a4 4 0 0 1-8 0V4zM8 6H5v1.5A3 3 0 0 0 8 10.5M16 6h3v1.5a3 3 0 0 1-3 3M12 13v4M8.5 20h7M10 17h4'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 4h8v5a4 4 0 0 1-8 0V4zM8 6H5v1.5A3 3 0 0 0 8 10.5M16 6h3v1.5a3 3 0 0 1-3 3M12 13v4M8.5 20h7M10 17h4'/%3E%3C/svg%3E") center/contain no-repeat; }
+#view-summary { justify-content: safe center; }
