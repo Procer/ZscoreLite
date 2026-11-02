@@ -1851,3 +1851,20 @@ input::placeholder { color: #a49b86; }
 #view-home .home-q { margin-top: auto; margin-bottom: 18px; font-size: clamp(44px, 14vw, 60px); line-height: 1.02; }
 #view-home .home-actions { flex: none; padding-bottom: 0; }
 #view-home .home-card--main { margin-top: 4px; }
+
+/* ===== Tipografias propias (alojadas en la app: funcionan sin internet) ===== */
+@font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 400 900; font-display: swap; src: url(../fonts/fraunces-latin.woff2) format('woff2'); }
+@font-face { font-family: 'DM Sans'; font-style: normal; font-weight: 400 700; font-display: swap; src: url(../fonts/dmsans-latin.woff2) format('woff2'); }
+
+/* ===== Marcador: los tantos en Fraunces blanda y robusta =====
+   opsz 9 = trazos gruesos y poco contraste (se leen de lejos); SOFT 100 = terminaciones redondeadas, como la pelota. */
+.team-point {
+  font-family: var(--display);
+  font-weight: 800;
+  font-variation-settings: 'opsz' 9, 'SOFT' 100;
+  letter-spacing: -.02em;
+}
+.team-point.is-long { font-family: var(--sans); font-variation-settings: normal; letter-spacing: 0; font-weight: 800; }
+/* Las cifras de Fraunces son mas anchas: el limite de ancho baja para que dos cifras entren enteras en su mitad */
+.team-point { font-size: clamp(120px, min(92vh, 34vw), 700px); letter-spacing: -.045em; padding-left: 0; padding-right: 0; }
+.team-point.is-long { font-size: min(22vh, 8.5vw); }

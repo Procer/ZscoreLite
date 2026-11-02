@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zscore-lite-v51';
+const CACHE_NAME = 'zscore-lite-v53';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -27,6 +27,8 @@ const CORE_ASSETS = [
   './js/ui-live.js',
   './js/vendor/qrcode.js',
   './js/share-image.js',
+  './fonts/fraunces-latin.woff2',
+  './fonts/dmsans-latin.woff2',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
